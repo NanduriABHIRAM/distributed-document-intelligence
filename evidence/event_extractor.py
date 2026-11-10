@@ -1,4 +1,5 @@
 import hashlib
+from evidence.qualifiers import qualifiers
 
 from evidence.schemas import EvidenceEvent, SourceReference
 
@@ -148,7 +149,10 @@ def extract_events(chunk: dict, nlp, doc=None) -> list[EvidenceEvent]:
             object=event_object,
             event_date=event_date,
             date_is_explicit=event_date is not None,
-            source=source
+            source=source,
+            negated=qualifiers(sentence.text)["negated"],
+            modality=qualifiers(sentence.text)["modality"],
+            date_kind="explicit" if event_date else "unknown"
         )
 
         events.append(event)

@@ -1,10 +1,11 @@
 import spacy
+from configs.runtime import option
 import hashlib
 
 from evidence.schemas import EvidenceEntity,SourceReference
 
 def load_nlp():
-    return spacy.load("en_core_web_sm")
+    return spacy.load(option("models", "spacy", "en_core_web_sm", "SPACY_MODEL"))
 
 def normalize_entity(text:str) -> str:
     return " ".join(text.strip().casefold().split())

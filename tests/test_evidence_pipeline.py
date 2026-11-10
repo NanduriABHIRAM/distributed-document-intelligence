@@ -13,7 +13,7 @@ def test_explicit_relationship_is_provenance_preserving():
     nlp = spacy.load("en_core_web_sm")
     chunk = _chunk("Microsoft acquired LinkedIn in 2016.")
     entities = validate_entities(chunk, extract_entities(chunk, nlp))
-    relationships = validate_relationships(chunk, extract_relationships(chunk, entities, nlp), entities)
+    relationships = validate_relationships(chunk, extract_relationships(chunk, entities, nlp), entities, nlp=nlp)
     assert len(relationships) == 1
     relationship = relationships[0]
     assert relationship.relationship_type == "ACQUIRE"

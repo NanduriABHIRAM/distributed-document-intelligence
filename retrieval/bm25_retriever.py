@@ -17,7 +17,7 @@ class BM25Retriever:
         self._index: BM25Okapi | None = None
 
     def fit(self, chunks: list[dict]) -> None:
-        self._chunks = list(chunks)
+        self._chunks = [c for c in chunks if tokenize(c.get("text", ""))]
         corpus = [tokenize(chunk.get("text", "")) for chunk in self._chunks]
         self._index = BM25Okapi(corpus) if corpus else None
 
@@ -25,12 +25,13 @@ class BM25Retriever:
         if not self._index or not query.strip() or top_k < 1:
             return []
         scored = sorted(
-            enumerate(self._index.get_scores(tokenize(query))),
+            ((position, score) for position, score in enumerate(self._index.get_scores(tokenize(query)))
+             if set(tokenize(query)) & set(tokenize(self._chunks[position].get("text", "")))),
             key=lambda item: item[1], reverse=True,
         )[:top_k]
         results = []
         for rank, (position, score) in enumerate(scored, start=1):
-            if score <= 0:
+            if not set(tokenize(query)) & set(tokenize(self._chunks[position].get("text", ""))):
                 continue
             chunk = dict(self._chunks[position])
             chunk.update({"id": chunk["chunk_id"], "bm25_score": float(score), "bm25_rank": rank})

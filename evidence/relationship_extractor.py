@@ -7,6 +7,7 @@ object entity.  Sharing a chunk or a sentence is never enough to create an edge.
 from __future__ import annotations
 
 import hashlib
+from evidence.qualifiers import qualifiers
 from typing import Iterable
 
 from evidence.schemas import EvidenceEntity, EvidenceRelationship, SourceReference
@@ -45,11 +46,12 @@ def _entity_for_subtree(token, entities: Iterable[EvidenceEntity]) -> EvidenceEn
     direct = _entity_for_token(token, entities)
     if direct:
         return direct
-    for descendant in getattr(token, "subtree", ()):  # Named entity may be a compound child.
-        found = _entity_for_token(descendant, entities)
-        if found:
-            return found
-    return None
+    # Do not mistake a possessor or relative-clause entity for the argument itself.
+    found = {_entity_for_token(child, entities).entity_id: _entity_for_token(child, entities)
+             for child in getattr(token, 'children', ())
+             if getattr(child, 'dep_', '') in {'compound', 'flat', 'name'} and _entity_for_token(child, entities)}
+    return next(iter(found.values())) if len(found) == 1 else None
+
 
 
 def extract_relationships(
@@ -68,6 +70,9 @@ def extract_relationships(
     seen: set[tuple[str, str, str, int, int]] = set()
 
     for sentence in doc.sents:
+        q = qualifiers(sentence.text)
+        if q["negated"] or q["modality"] or q["attribution"]:
+            continue
         verbs = [token for token in sentence if getattr(token, "pos_", "") in {"VERB", "AUX"}]
         for predicate in verbs:
             subjects = [

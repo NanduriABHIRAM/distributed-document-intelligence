@@ -1,15 +1,19 @@
-def precision_at_k(retrieved: list[str], relevant: set[str], k: int) -> float:
-    if k <= 0:
-        raise ValueError("k must be positive")
-    return sum(1 for item in retrieved[:k] if item in relevant) / k
+"""Rank metrics with duplicate protection and graded nDCG."""
+import math
 
-def recall_at_k(retrieved: list[str], relevant: set[str], k: int) -> float:
-    if not relevant:
-        return 0.0
-    return sum(1 for item in retrieved[:k] if item in relevant) / len(relevant)
-
-def reciprocal_rank(retrieved: list[str], relevant: set[str]) -> float:
-    for rank, item in enumerate(retrieved, start=1):
-        if item in relevant:
-            return 1.0 / rank
-    return 0.0
+def _ranked(retrieved,k):
+    if k<1: raise ValueError('k must be positive')
+    return list(dict.fromkeys(retrieved))[:k]
+def precision_at_k(retrieved,relevant,k):
+    return len(set(_ranked(retrieved,k)) & relevant)/k
+def recall_at_k(retrieved,relevant,k):
+    ranked=_ranked(retrieved,k)
+    return len(set(ranked)&relevant)/len(relevant) if relevant else 0.0
+def reciprocal_rank(retrieved,relevant):
+    return next((1/r for r,item in enumerate(dict.fromkeys(retrieved),1) if item in relevant),0.0)
+def ndcg_at_k(retrieved, relevance, k):
+    ranked=_ranked(retrieved,k)
+    if any(v<0 for v in relevance.values()): raise ValueError('Relevance must be nonnegative')
+    dcg=sum((2**relevance.get(item,0)-1)/math.log2(rank+1) for rank,item in enumerate(ranked,1))
+    ideal=sum((2**grade-1)/math.log2(rank+1) for rank,grade in enumerate(sorted(relevance.values(),reverse=True)[:k],1))
+    return dcg/ideal if ideal else 0.0

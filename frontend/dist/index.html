@@ -1,12 +1,25 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="light">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#0a1021" />
-    <title>TraceRAG</title>
-    <script type="module" crossorigin src="/assets/index-QmIlx5Pp.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-Ck2zICLE.css">
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="description" content="Search your documents, compare claims, and trace every answer to its original source." />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <script>
+      try {
+        const theme = localStorage.getItem('tracerag-theme') === 'dark' ? 'dark' : 'light';
+        document.documentElement.dataset.theme = theme;
+        document.querySelector('meta[name="theme-color"]').content = theme === 'dark' ? '#191d1a' : '#ffffff';
+      } catch (_) {}
+    </script>
+    <title>TraceRAG · Document intelligence</title>
+    <script type="module" crossorigin src="/assets/index-Bo3m1-yV.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-DH2Ttowf.css">
   </head>
-  <body><div id="root"></div></body>
+  <body>
+    <div id="root"></div>
+    <noscript>Enable JavaScript to use the TraceRAG document workspace.</noscript>
+  </body>
 </html>

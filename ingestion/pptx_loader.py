@@ -5,7 +5,7 @@ from zipfile import ZipFile, ZIP_DEFLATED
 
 from pptx import Presentation
 from .base import ExtractedDocument, ExtractedSection
-from .utils import sha256_file
+from .utils import sha256_file, document_id
 
 
 def load_pptx(path: Path) -> ExtractedDocument:
@@ -60,7 +60,7 @@ def load_pptx(path: Path) -> ExtractedDocument:
         )
 
     return ExtractedDocument(
-        document_id=path.stem,
+        document_id=document_id(path),
         source_path=str(path),
         file_type=path.suffix.lower().lstrip("."),
         sections=sections,

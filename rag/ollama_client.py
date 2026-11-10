@@ -3,14 +3,16 @@
 from __future__ import annotations
 
 import os
+from configs.runtime import option, settings
 
 import httpx
 
 
 class OllamaClient:
     def __init__(self, base_url: str | None = None, model: str | None = None, timeout: float = 90.0):
+        settings()
         self.base_url = (base_url or os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434")).rstrip("/")
-        self.model = model or os.getenv("OLLAMA_MODEL", "qwen3:latest")
+        self.model = model or option("models", "generation", "qwen3:4b", "OLLAMA_MODEL")
         self.timeout = timeout
 
     def is_available(self) -> bool:

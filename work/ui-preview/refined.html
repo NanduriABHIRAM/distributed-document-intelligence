@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>TraceRAG — revised design preview</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --paper: #ffffff;
+      --surface: #f6f5f2;
+      --surface-hover: #eeede8;
+      --ink: #292a27;
+      --muted: #71736c;
+      --line: #e3e3dc;
+      --accent: #795e40;
+      --accent-soft: #f0ebe3;
+      --solid: #333c35;
+      --on-solid: #ffffff;
+      --good: #466651;
+      --shadow: 0 5px 16px rgba(33,36,29,.035);
+    }
+    :root[data-theme="dark"] {
+      color-scheme: dark;
+      --paper: #191d1a;
+      --surface: #222722;
+      --surface-hover: #2c322c;
+      --ink: #ecece5;
+      --muted: #adb2a8;
+      --line: #363d35;
+      --accent: #d3b38b;
+      --accent-soft: #363126;
+      --solid: #d4dfce;
+      --on-solid: #20271f;
+      --good: #adc5a8;
+      --shadow: none;
+    }
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    body { margin: 0; background: var(--paper); color: var(--ink); font: 14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+    button, a, input { -webkit-tap-highlight-color: transparent; }
+    button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+    button { color: inherit; }
+    .app-shell { max-width: 1240px; margin: auto; padding: 0 34px; min-height: 100vh; display: flex; flex-direction: column; }
+    .topbar { min-height: 84px; display: flex; align-items: center; gap: 32px; border-bottom: 1px solid var(--line); }
+    .brand { border: 0; background: transparent; padding: 0; white-space: nowrap; font-size: 20px; font-weight: 600; letter-spacing: -.6px; display: flex; align-items: center; gap: 9px; }
+    .brand-mark { background: var(--solid); color: var(--on-solid); display: grid; place-items: center; width: 29px; height: 29px; border-radius: 4px; font: 12px/1 Georgia,serif; letter-spacing: -.8px; }
+    .topbar nav { display: flex; gap: 23px; margin-right: auto; align-self: stretch; }
+    .nav-link { border: 0; border-bottom: 2px solid transparent; padding: 2px 0 0; background: transparent; color: var(--muted); font-size: 12px; white-space: nowrap; }
+    .nav-link:hover { color: var(--ink); }
+    .nav-link.active { color: var(--ink); border-bottom-color: var(--accent); }
+    .header-tools { display: flex; align-items: center; gap: 16px; }
+    .system-state { font-size: 11px; color: var(--muted); white-space: nowrap; display: inline-flex; align-items: center; gap: 7px; }
+    .system-state::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--accent); }
+    .theme-toggle { border: 1px solid var(--line); border-radius: 5px; background: var(--paper); padding: 6px 10px; font-size: 12px; white-space: nowrap; }
+    .theme-toggle:hover { background: var(--surface); }
+    .demo-note { display: flex; justify-content: space-between; gap: 14px; margin-top: 17px; color: var(--muted); font-size: 11px; }
+    .demo-note span:first-child { color: var(--accent); }
+    .page { padding: 60px 0 56px; }
+    .overview-page { padding-top: 70px; }
+    .hero-copy { max-width: 780px; margin-bottom: 54px; }
+    .eyebrow { display: flex; align-items: center; gap: 10px; color: var(--accent); font: 11px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace; letter-spacing: .09em; text-transform: uppercase; }
+    .eyebrow::before { content: ""; height: 1px; width: 23px; background: var(--accent); }
+    h1 { font: 400 clamp(43px,5.2vw,65px)/1.09 Georgia,"Times New Roman",serif; letter-spacing: -2.3px; margin: 21px 0 18px; }
+    h1 em { font-weight: 400; color: var(--accent); }
+    .hero-copy p, .page-heading p { color: var(--muted); max-width: 560px; font-size: 14px; line-height: 1.8; }
+    .primary, .search button { background: var(--solid); color: var(--on-solid); border: 1px solid var(--solid); padding: 11px 17px; border-radius: 5px; font-weight: 500; font-size: 12px; }
+    .primary { display: inline-flex; align-items: center; gap: 23px; margin-top: 13px; }
+    .primary:hover, .search button:hover { filter: brightness(.92); }
+    .metric-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); border: 1px solid var(--line); border-radius: 7px; overflow: hidden; background: var(--surface); }
+    .metric { padding: 23px 26px; min-height: 112px; display: grid; gap: 6px; border-right: 1px solid var(--line); }
+    .metric:last-child { border: 0; background: var(--accent-soft); }
+    .metric strong { font-size: 29px; line-height: 1.3; font-weight: 400; font-variant-numeric: tabular-nums; letter-spacing: -1px; }
+    .metric.accent strong { color: var(--accent); }
+    .metric span { color: var(--muted); font-size: 11px; }
+    .status-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 13px; margin-top: 16px; }
+    .status-card { border: 1px solid var(--line); background: var(--paper); border-radius: 6px; padding: 15px 17px; display: grid; gap: 6px; }
+    .status-card span { color: var(--muted); font-size: 11px; }
+    .status-card b { font-size: 12px; font-weight: 500; }
+    .status-card .ok { color: var(--good); }
+    .page-heading { margin-bottom: 30px; }
+    .page-heading h2 { font: 400 clamp(32px,4vw,43px)/1.2 Georgia,serif; letter-spacing: -1.2px; margin: 13px 0 12px; }
+    .page-heading p { margin: 0; }
+    .search { display: flex; align-items: center; gap: 12px; width: min(760px,100%); border: 1px solid var(--line); border-radius: 7px; background: var(--paper); padding: 6px; box-shadow: var(--shadow); }
+    .search:focus-within { border-color: var(--accent); }
+    .search-symbol { margin-left: 10px; width: 14px; height: 14px; border: 1.4px solid var(--muted); border-radius: 50%; position: relative; flex-shrink: 0; }
+    .search-symbol::after { position: absolute; content: ""; width: 5px; height: 1.4px; background: var(--muted); right: -4px; bottom: -2px; transform: rotate(45deg); }
+    .search input { border: 0; background: transparent; color: var(--ink); min-width: 0; flex: 1; padding: 8px 4px; font-size: 14px; }
+    .suggestions { display: flex; gap: 9px; flex-wrap: wrap; margin-top: 14px; color: var(--muted); font-size: 11px; }
+    .suggestions button { border: 0; background: transparent; padding: 0; color: var(--muted); text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 4px; font-size: 11px; }
+    .suggestions button:hover { color: var(--accent); }
+    .investigation { padding-top: 40px; }
+    .result-heading { display: flex; justify-content: space-between; align-items: end; gap: 16px; margin-bottom: 18px; }
+    .result-heading h3 { font: 400 28px/1.3 Georgia,serif; letter-spacing: -.6px; margin: 7px 0 0; }
+    .answer-card { background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 0 6px 6px 0; padding: 24px 26px; }
+    .answer-kicker { color: var(--accent); text-transform: uppercase; font: 10px/1.5 ui-monospace,monospace; letter-spacing: .09em; }
+    .answer-card p { font-size: 16px; line-height: 1.85; max-width: 850px; margin: 12px 0; }
+    .answer-card small { color: var(--muted); font-size: 11px; }
+    .reference { color: var(--accent); border: 0; background: transparent; font-size: 12px; padding: 0 3px; vertical-align: super; }
+    .retrieval-strip { display: flex; flex-wrap: wrap; gap: 25px; color: var(--muted); font: 10px/1.7 ui-monospace,monospace; padding: 12px 0; border-bottom: 1px solid var(--line); }
+    .retrieval-strip b { font-weight: 400; color: var(--ink); }
+    .evidence-header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 28px 0 14px; }
+    .evidence-header h3 { font-size: 14px; font-weight: 500; margin: 0; }
+    .evidence-header h3 span, .evidence-header p { color: var(--muted); font-size: 11px; font-weight: 400; }
+    .evidence-header p { margin: 0; }
+    .evidence-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 15px; }
+    .evidence-card { border: 1px solid var(--line); border-radius: 6px; padding: 20px; background: var(--paper); min-width: 0; }
+    .evidence-card.open { border-color: var(--accent); }
+    .evidence-top { display: flex; justify-content: space-between; color: var(--muted); font: 10px ui-monospace,monospace; }
+    .citation { color: var(--accent); }
+    .evidence-card h4 { font-size: 13px; font-weight: 500; margin: 20px 0 7px; }
+    .source-line { font-size: 10px; color: var(--muted); letter-spacing: .04em; }
+    .evidence-card p { font-size: 12px; line-height: 1.85; margin: 14px 0; }
+    .evidence-card button { padding: 0; border: 0; background: transparent; color: var(--accent); font-size: 11px; }
+    .clamp { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+    .library-search { width: min(460px,100%); border: 1px solid var(--line); border-radius: 5px; background: var(--surface); color: var(--ink); padding: 11px 14px; margin-bottom: 22px; }
+    .document-list { border-top: 1px solid var(--line); }
+    .document-row { display: flex; justify-content: space-between; align-items: center; gap: 20px; padding: 20px 4px; border-bottom: 1px solid var(--line); }
+    .document-row h3 { margin: 0 0 5px; font-size: 14px; font-weight: 500; }
+    .document-row span { color: var(--muted); font: 11px ui-monospace,monospace; overflow-wrap: anywhere; }
+    .document-meta { text-align: right; white-space: nowrap; font-size: 12px; }
+    .document-meta b { font-weight: 500; }
+    .empty-state { text-align: center; padding: 62px 20px; color: var(--muted); }
+    .empty-state h3 { color: var(--ink); font-size: 16px; font-weight: 500; }
+    .empty-state p { font-size: 13px; }
+    footer { margin-top: auto; display: flex; gap: 16px; justify-content: space-between; border-top: 1px solid var(--line); padding: 23px 0 28px; color: var(--muted); font-size: 10px; }
+    @media (max-width: 1000px) {
+      .topbar { gap: 20px; flex-wrap: wrap; padding: 16px 0 0; }
+      .topbar nav { order: 3; width: 100%; min-height: 40px; gap: 23px; }
+      .header-tools { margin-left: auto; }
+      .overview-page { padding-top: 52px; }
+    }
+    @media (max-width: 700px) {
+      .app-shell { padding: 0 20px; }
+      .metric-grid,.status-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+      .metric:nth-child(2) { border-right: 0; }
+      .metric:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
+      .evidence-grid { grid-template-columns: 1fr; }
+      .hero-copy { margin-bottom: 36px; }
+      .page { padding-top: 42px; }
+      .result-heading { align-items: start; flex-direction: column; }
+      .metric { padding: 20px; }
+      .demo-note span:last-child { display: none; }
+    }
+    @media (max-width: 420px) {
+      .app-shell { padding: 0 16px; }
+      .system-state { display: none; }
+      .topbar nav { justify-content: flex-start; flex-wrap: wrap; column-gap: 18px; row-gap: 0; }
+      .nav-link { font-size: 10px; }
+      h1 { font-size: 43px; letter-spacing: -1.7px; }
+      .status-grid { gap: 8px; }
+      .status-card { padding: 12px; }
+      .search { flex-wrap: wrap; padding: 8px; }
+      .search input { width: calc(100% - 40px); flex-basis: calc(100% - 40px); font-size: 16px; }
+      .search button { width: 100%; }
+      .document-row { align-items: start; }
+      footer { flex-direction: column; gap: 3px; }
+    }
+    @media (pointer: coarse) { .theme-toggle,.nav-link,.primary,.search button,.evidence-card button,.suggestions button { min-height: 44px; } }
+  </style>
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar">
+      <button class="brand" type="button" data-page="overview"><span class="brand-mark">TR</span>TraceRAG</button>
+      <nav aria-label="Main navigation">
+        <button class="nav-link active" type="button" data-page="overview" aria-current="page">Overview</button>
+        <button class="nav-link" type="button" data-page="ask">Ask Documents</button>
+        <button class="nav-link" type="button" data-page="library">Document Library</button>
+        <button class="nav-link" type="button" data-page="evidence">Evidence Explorer</button>
+      </nav>
+      <div class="header-tools"><span class="system-state">Sample workspace</span><button type="button" class="theme-toggle" id="theme" aria-pressed="false">Dark mode</button></div>
+    </header>
+    <div class="demo-note"><span>Design preview / sample content</span><span>Original layout · revised palette &amp; typography</span></div>
+
+    <section class="page overview-page" id="overview">
+      <div class="hero-copy">
+        <div class="eyebrow">Evidence-centric hybrid RAG</div>
+        <h1>Ask with confidence.<br><em>Trace every answer.</em></h1>
+        <p>TraceRAG retrieves document evidence, validates citations, and makes uncertainty visible.</p>
+        <button class="primary" type="button" data-page="ask">Ask your documents <span aria-hidden="true">↗</span></button>
+      </div>
+      <section class="metric-grid" aria-label="Sample corpus status">
+        <article class="metric"><strong>3</strong><span>logical documents</span></article>
+        <article class="metric"><strong>3</strong><span>source files</span></article>
+        <article class="metric"><strong>9</strong><span>indexed chunks</span></article>
+        <article class="metric accent"><strong>18</strong><span>evidence records</span></article>
+      </section>
+      <section class="status-grid" aria-label="Sample processing status">
+        <article class="status-card"><span>Retrieval</span><b class="ok">BM25 + dense RRF</b></article>
+        <article class="status-card"><span>Dense index</span><b class="ok">Available</b></article>
+        <article class="status-card"><span>Answer policy</span><b>Citations required</b></article>
+        <article class="status-card"><span>Evidence validation</span><b class="ok">Completed</b></article>
+      </section>
+    </section>
+
+    <section class="page ask-page" id="ask" hidden>
+      <div class="page-heading"><div class="eyebrow">Ask documents</div><h2>Evidence before answers.</h2><p>Ask a question in plain language. TraceRAG retrieves original passages before it responds.</p></div>
+      <form class="search" id="question-form"><span class="search-symbol" aria-hidden="true"></span><input id="question" aria-label="Investigation query" value="What is an operating system?" required minlength="2" maxlength="500"><button>Investigate</button></form>
+      <div class="suggestions"><span>Try:</span><button type="button" data-query="What is an operating system?">Operating systems</button><span>/</span><button type="button" data-query="Explain process scheduling">Process scheduling</button><span>/</span><button type="button" data-query="What is normalization in DBMS?">Database normalization</button></div>
+      <div id="result" hidden></div>
+      <section class="empty-state" id="ask-empty"><h3>Start an evidence investigation</h3><p>This demo includes three sample questions. Choose one above to explore the result.</p></section>
+    </section>
+
+    <section class="page" id="library" hidden>
+      <div class="page-heading"><div class="eyebrow">Document library</div><h2>Indexed source material.</h2><p>These sample documents demonstrate the existing library layout.</p></div>
+      <input id="document-filter" class="library-search" aria-label="Filter documents" placeholder="Filter documents">
+      <div class="document-list" id="document-list"></div>
+      <p id="no-documents" hidden>No matching sample documents.</p>
+    </section>
+
+    <section class="page" id="evidence" hidden>
+      <div class="page-heading"><div class="eyebrow">Evidence explorer</div><h2>Inspect the source trail.</h2><p>Evidence from your latest sample investigation, with document and location references.</p></div>
+      <div id="explorer-content"><section class="empty-state"><h3>No retrieved evidence yet</h3><p>Run a sample investigation to inspect its source passages.</p><button class="primary" type="button" data-page="ask">Ask documents <span aria-hidden="true">↗</span></button></section></div>
+    </section>
+    <footer><span>TraceRAG keeps every result connected to its original evidence.</span><span>Local design preview · Sample data only</span></footer>
+    <span id="announcement" role="status" style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0"></span>
+  </main>
+  <script>
+  (() => {
+    const $ = id => document.getElementById(id);
+    const pages = ['overview', 'ask', 'library', 'evidence'];
+    const docs = [
+      { name: 'Operating Systems — Introduction', path: 'samples/operating-systems.pdf', type: 'PDF', chunks: 3 },
+      { name: 'Process Scheduling', path: 'samples/process-scheduling.pdf', type: 'PDF', chunks: 3 },
+      { name: 'Database Fundamentals', path: 'samples/database-fundamentals.pdf', type: 'PDF', chunks: 3 }
+    ];
+    const samples = [
+      { match: /operating|\bos\b/i, query: 'What is an operating system?', doc: docs[0], answer: 'An operating system manages the computer’s hardware and provides services for applications. It coordinates processor time, memory, files, and input/output devices.', passages: ['An operating system manages the computer’s hardware and provides services for applications.', 'It coordinates processor time, memory, files, and input/output devices.', 'Applications use operating system services to access shared computing resources.'] },
+      { match: /process|schedul/i, query: 'Explain process scheduling', doc: docs[1], answer: 'Process scheduling selects a ready process to run on the CPU. The scheduler uses a policy to allocate processor time among competing processes.', passages: ['Process scheduling selects a ready process to run on the CPU.', 'The scheduler uses a policy to allocate processor time among competing processes.', 'Round-robin scheduling assigns each process a limited time slice before another ready process runs.'] },
+      { match: /normal|database|dbms/i, query: 'What is normalization in DBMS?', doc: docs[2], answer: 'Normalization organizes database tables to reduce redundant data. Separating related facts can help prevent insertion, update, and deletion anomalies.', passages: ['Normalization organizes database tables to reduce redundant data.', 'Separating related facts can help prevent insertion, update, and deletion anomalies.', 'A table in first normal form contains a single value in each cell.'] }
+    ];
+    function escape(text) { const el = document.createElement('span'); el.textContent = text; return el.innerHTML; }
+    function showPage(page) {
+      if (!pages.includes(page)) return;
+      pages.forEach(id => { $(id).hidden = id !== page; });
+      document.querySelectorAll('.nav-link').forEach(button => {
+        const active = button.dataset.page === page;
+        button.classList.toggle('active', active);
+        if (active) button.setAttribute('aria-current', 'page'); else button.removeAttribute('aria-current');
+      });
+      $('announcement').textContent = page === 'ask' ? 'Ask Documents' : page === 'library' ? 'Document Library' : page === 'evidence' ? 'Evidence Explorer' : 'Overview';
+    }
+    document.querySelectorAll('[data-page]').forEach(button => button.addEventListener('click', () => showPage(button.dataset.page)));
+    function theme(dark) {
+      document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+      $('theme').textContent = dark ? 'Light mode' : 'Dark mode';
+      $('theme').setAttribute('aria-pressed', String(dark));
+    }
+    try { theme(localStorage.getItem('tracerag-design-theme') === 'dark'); } catch (_) { theme(false); }
+    $('theme').addEventListener('click', () => {
+      const dark = document.documentElement.dataset.theme !== 'dark';
+      theme(dark);
+      try { localStorage.setItem('tracerag-design-theme', dark ? 'dark' : 'light'); } catch (_) {}
+    });
+    function evidenceGrid(sample, prefix) {
+      return `<div class="evidence-header"><h3>Supporting evidence <span> / 3</span></h3><p>Sample source passages</p></div><div class="evidence-grid">${sample.passages.map((text, i) => `<article class="evidence-card" id="${prefix}-${i}"><div class="evidence-top"><span class="citation">[E${i + 1}]</span><span>Passage ${i + 1}</span></div><h4>${escape(sample.doc.name)}</h4><div class="source-line">PDF &nbsp; / &nbsp; PAGE ${i + 2}</div><p class="clamp">${escape(text)}</p><div class="source-detail" hidden><p class="source-line">${escape(sample.doc.path)}<br>Chunk: sample-${samples.indexOf(sample) + 1}-${i + 1}</p></div><button type="button" class="read-evidence" aria-expanded="false">Read evidence ↗</button></article>`).join('')}</div>`;
+    }
+    function run() {
+      const query = $('question').value.trim();
+      const sample = samples.find(item => item.match.test(query));
+      $('ask-empty').hidden = true;
+      $('result').hidden = false;
+      if (!sample) {
+        $('result').innerHTML = '<section class="empty-state"><h3>This question is outside the demo samples.</h3><p>Choose one of the three example questions above. This preview does not query a live backend.</p></section>';
+        $('announcement').textContent = 'Choose a sample question to preview an answer.';
+        return;
+      }
+      $('result').innerHTML = `<section class="investigation"><div class="result-heading"><div><div class="eyebrow">Investigation result</div><h3>Cited answer</h3></div><span class="system-state">Sample investigation</span></div><article class="answer-card"><span class="answer-kicker">TraceRAG answer</span><p>${escape(sample.passages[0])} <button type="button" class="reference" data-reference="answer-source-0" aria-label="Read evidence E1">[E1]</button> ${escape(sample.passages[1])} <button type="button" class="reference" data-reference="answer-source-1" aria-label="Read evidence E2">[E2]</button></p><small>Illustrative answer with references to the sample passages below.</small></article><div class="retrieval-strip"><span>Mode: <b>sample preview</b></span><span>Sources: <b>1 document</b></span><span>Passages: <b>3</b></span></div>${evidenceGrid(sample, 'answer-source')}</section>`;
+      $('explorer-content').innerHTML = evidenceGrid(sample, 'explorer-source');
+      $('announcement').textContent = 'Sample answer ready, with three source passages.';
+    }
+    $('question-form').addEventListener('submit', event => { event.preventDefault(); run(); });
+    document.querySelectorAll('[data-query]').forEach(button => button.addEventListener('click', () => { $('question').value = button.dataset.query; run(); }));
+    document.addEventListener('click', event => {
+      const read = event.target.closest('.read-evidence');
+      if (read) {
+        const card = read.closest('.evidence-card');
+        const open = card.classList.toggle('open');
+        card.querySelector('.source-detail').hidden = !open;
+        card.querySelector('p').classList.toggle('clamp', !open);
+        read.setAttribute('aria-expanded', String(open));
+        read.textContent = open ? 'Show less ↗' : 'Read evidence ↗';
+      }
+      const reference = event.target.closest('[data-reference]');
+      if (reference) {
+        const card = $(reference.dataset.reference);
+        const button = card.querySelector('.read-evidence');
+        if (button.getAttribute('aria-expanded') !== 'true') button.click();
+        button.focus();
+      }
+    });
+    function library() {
+      const filter = $('document-filter').value.toLowerCase();
+      const matching = docs.filter(doc => doc.name.toLowerCase().includes(filter));
+      $('document-list').innerHTML = matching.map(doc => `<article class="document-row"><div><h3>${escape(doc.name)}</h3><span>${escape(doc.path)}</span></div><div class="document-meta"><b>${doc.chunks}</b> chunks<br><span>${doc.type}</span></div></article>`).join('');
+      $('no-documents').hidden = matching.length > 0;
+    }
+    $('document-filter').addEventListener('input', library);
+    library();
+  })();
+  </script>
+</body>
+</html>

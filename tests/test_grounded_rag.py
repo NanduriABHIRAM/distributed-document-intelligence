@@ -12,8 +12,11 @@ class UncitedClient:
         return "An operating system manages hardware resources."
 
 
-def test_grounded_answer_is_accepted_with_known_citation():
-    result = generate_answer("What is an OS?", "[E1] source text", 1, client=GroundedClient())
+def test_grounded_answer_is_accepted_with_known_citation(tmp_path):
+    path = tmp_path / "source.txt"
+    path.write_text("An operating system manages hardware resources.")
+    evidence = [{"evidence_id":"E1", "text":path.read_text(), "source_path":str(path)}]
+    result = generate_answer("What is an OS?", "[E1] source text", 1, client=GroundedClient(), evidence=evidence)
     assert result["mode"] == "ollama_grounded"
     assert result["citation_validation"]["valid"]
 

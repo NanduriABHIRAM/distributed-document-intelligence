@@ -33,6 +33,8 @@ class VectorRetriever:
             self.index = faiss.IndexFlatIP(vectors.shape[1])
         elif self.index.d != vectors.shape[1]:
             raise ValueError("Embedding dimensions do not match the existing FAISS index.")
+        if len(vectors) != len(chunks) or not np.isfinite(vectors).all():
+            raise ValueError("Invalid embedding count or non-finite vectors")
         self.index.add(vectors)
         self.records.extend(chunks)
 
@@ -63,6 +65,13 @@ class VectorRetriever:
         """Load a persisted index without re-embedding documents."""
         import faiss
         index_path, records_path = Path(index_path), Path(records_path)
+        metadata_path = records_path.with_suffix('.meta.json')
+        if metadata_path.exists():
+            metadata = json.loads(metadata_path.read_text(encoding='utf-8'))
+            recorded = metadata.get('embedding_model')
+            active = getattr(embedder,'model',None) or getattr(embedder,'model_name',None)
+            if recorded and recorded != active:
+                raise ValueError('Query embedding model differs from indexed model; rebuild the index')
         retriever = cls(index=faiss.read_index(str(index_path)), embedder=embedder)
         retriever.records = json.loads(records_path.read_text(encoding="utf-8"))
         if retriever.index.ntotal != len(retriever.records):

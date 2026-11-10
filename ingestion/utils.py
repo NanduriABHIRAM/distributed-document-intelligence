@@ -15,3 +15,7 @@ def stable_id(*parts: str) -> str:
 
 def estimate_tokens(text: str) -> int:
     return max(1, len(re.findall(r"\S+", text))) if text.strip() else 0
+
+def document_id(path: Path) -> str:
+    """Source path plus content identity; moving sources requires reindexing."""
+    return stable_id(str(path.resolve()).casefold(), sha256_file(path))

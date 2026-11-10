@@ -8,11 +8,16 @@ files = [
     "Modelling, Simulation & Analysis - Lecture 2.ppsx",
 ]
 
-for filename in files:
-    path = Path("data/raw") / filename
+def main():
+    for filename in files:
+        path = Path("data/raw") / filename
 
-    try:
-        document = load_document(path)
-        print(f"SUCCESS: {filename} | Sections: {len(document.sections)}")
-    except Exception as error:
-        print(f"FAILED: {filename} | {type(error).__name__}: {error}")
+        try:
+            document = load_document(path)
+            print(f"SUCCESS: {filename} | Sections: {len(document.sections)}")
+        except Exception as error:
+            print(f"FAILED: {filename} | {type(error).__name__}: {error}")
+
+
+if __name__ == "__main__":
+    main()

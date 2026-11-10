@@ -42,4 +42,8 @@ def build_evidence_context(evidence: list[dict]) -> str:
             f"chunk={result.get('chunk_id', 'Unknown')}; location={location_label}; score={score}\n"
             f"SOURCE TEXT: {result.get('text', '').strip()}"
         )
+        for claim in result.get('claims', []):
+            parts.append(f"CANDIDATE CLAIM {claim['claim_id']} (not verified fact): {claim['claim_text']}")
+        for event in result.get('events', []):
+            parts.append(f"CANDIDATE EVENT {event['event_id']}: action={event['action']}; date={event.get('event_date')}; date_kind={event.get('date_kind','unknown')}")
     return "\n\n".join(parts)

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from configs.runtime import option, settings
 
 import httpx
 import numpy as np
@@ -10,7 +11,8 @@ import numpy as np
 
 class OllamaEmbedder:
     def __init__(self, model: str | None = None, base_url: str | None = None, timeout: float = 120.0):
-        self.model = model or os.getenv("OLLAMA_EMBEDDING_MODEL", "bge-m3")
+        settings()
+        self.model = model or option("models", "embedding", "bge-m3", "OLLAMA_EMBEDDING_MODEL")
         self.base_url = (base_url or os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434")).rstrip("/")
         self.timeout = timeout
 

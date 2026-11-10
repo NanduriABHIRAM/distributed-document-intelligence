@@ -1,14 +1,13 @@
-# Spark + Scala ETL
+# Spark + Scala chunk preparation
 
-This module is reserved for distributed extraction, cleaning, normalization,
-chunking and Parquet output.
+`DocumentETL` validates provenance, rejects duplicate IDs, repartitions the chunk corpus and writes Parquet on Spark executors. It does not claim to run NLP extraction in Scala. Run the validated Python ingestion/extraction pipeline first.
 
-Suggested initial job:
-1. Read a manifest of document paths and metadata.
-2. Distribute processing across Spark partitions.
-3. Produce rows containing document_id, chunk_id, text, page/slide, offsets,
-   source_path and processing metadata.
-4. Write partitioned Parquet output.
+Prerequisites: compatible Java, sbt, Spark 3.5.1 and Scala 2.12.18. The job has not been compiled or executed in the current Windows environment because these runtimes are absent.
 
-Use the Scala/Spark versions compatible with your installed Java and Spark runtime.
-Record exact versions in the experiment log.
+```powershell
+cd spark-scala
+sbt package
+spark-submit --class DocumentETL --master "local[2]" target/scala-2.12/distributed-document-intelligence-etl_2.12-0.1.0.jar ../data/processed/chunks.jsonl ../data/spark-output 2
+```
+
+For a cluster, use shared storage paths and the cluster master URL. Output paths must not already exist. Compare the same input hash across `local[1]`, `local[2]` and the cluster. Run each setting repeatedly and retain the adjacent `-metrics` output. These measurements benchmark chunk preparation, not PDF parsing or NLP throughput. No distributed speedup is established until the experiment is run.

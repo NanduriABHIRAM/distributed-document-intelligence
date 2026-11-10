@@ -23,6 +23,8 @@ def build(
     chunks_path: str, index_path: str, records_path: str, batch_size: int = 8,
     checkpoint_every: int = 10, limit: int | None = None, resume: bool = False,
 ) -> dict:
+    if batch_size < 1 or checkpoint_every < 1 or (limit is not None and limit < 1):
+        raise ValueError("Batch size, checkpoint interval and limit must be positive")
     chunks_file = Path(chunks_path)
     total_chunks = sum(1 for line in chunks_file.open("r", encoding="utf-8") if line.strip())
     retriever = (
@@ -33,6 +35,11 @@ def build(
     indexed = len(retriever.records)
     target = min(total_chunks, limit) if limit is not None else total_chunks
     digest = _file_hash(chunks_file)
+    if resume and indexed:
+        meta = json.loads(Path(records_path).with_suffix('.meta.json').read_text(encoding='utf-8'))
+        if meta.get('chunks_sha256') != digest:
+            raise ValueError('Corpus changed; cannot resume this index')
+
 
     def checkpoint(complete: bool) -> None:
         if retriever.index is not None:
@@ -46,9 +53,7 @@ def build(
 
     with Path(chunks_path).open("r", encoding="utf-8") as source:
         batch = []
-        for position, line in enumerate(source):
-            if not line.strip():
-                continue
+        for position, line in enumerate(line for line in source if line.strip()):
             if position < indexed:
                 continue
             if indexed + len(batch) >= target:

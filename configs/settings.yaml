@@ -21,3 +21,14 @@ evidence:
 research:
   benchmark_name: evidence-intelligence-benchmark
   random_seed: 42
+
+models:
+  spacy: en_core_web_sm
+  generation: qwen3:4b
+  embedding: bge-m3
+  reranker: null
+paths:
+  chunks_path: data/processed/chunks.jsonl
+  evidence_dir: data/evidence
+  vector_index_path: data/processed/chunks.faiss
+  vector_records_path: data/processed/chunks.vectors.json

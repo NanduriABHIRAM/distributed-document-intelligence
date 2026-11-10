@@ -1,4 +1,4 @@
-# TraceRAG — Evidence-Centric Hybrid Retrieval-Augmented Generation
+# TraceRAG â€” Evidence-Centric Hybrid Retrieval-Augmented Generation
 
 A research-oriented evidence intelligence platform for large document collections.
 It combines distributed document processing, claim extraction, evidence graphs,
@@ -70,7 +70,7 @@ npm run dev
 Open `http://localhost:5173`. The UI talks to the local API, returns source
 excerpts, and uses a grounded local Qwen answer when Ollama is running. The API
 automatically falls back to source excerpts if the model is unavailable or returns
-an answer with missing or invented citations.
+an answer with missing, invented, or unsupported citations. Current support validation accepts complete source sentences; paraphrases fall back to excerpts.
 
 For student-friendly grounded answers, install Ollama and pull the configured model:
 
@@ -81,14 +81,14 @@ ollama serve
 
 ## Current capabilities
 
-- Ingest 83 local PDF, DOCX, PPTX, PPSX, TXT, and Markdown documents into 14,200 chunks.
+- Ingest PDF, DOCX, PPTX, PPSX, TXT, and Markdown. The historical 83-document corpus is not present in this checkout; its final counts are unverified.
 - Extract entities, candidate claims, candidate events, and explicit dependency-backed entity relationships.
 - Validate every stored candidate against its document, chunk, path, and source offsets.
 - Write JSONL evidence artifacts with deterministic IDs and a reproducible summary.
 - Search source chunks through BM25 and expose documents, dashboard statistics, and investigations through FastAPI.
 - Browse evidence in a responsive React/Vite/Tailwind frontend.
 
-Evidence is deliberately labelled as candidate extraction—not verified fact.
+Evidence is deliberately labelled as candidate extractionâ€”not verified fact.
 
 ## Configuration
 
@@ -112,3 +112,7 @@ or API keys.
 Do not report placeholder metrics as results. Maintain labelled evaluation data,
 record model versions and configuration, and compare all retrieval methods on the
 same query set. Treat model confidence as an uncalibrated score until validated.
+
+## Verification and remaining research work
+
+See [the implementation checklist and reproducible commands](docs/IMPLEMENTATION_STATUS.md). Local fixture tests and frontend builds are verified separately from external model/database/cluster integrations and real-corpus research experiments. Do not interpret implemented adapters as measured research results.

@@ -1,0 +1,189 @@
+<style>
+  #tracerag-preview {
+    --tr-bg: #ffffff;
+    --tr-panel: #f7f8f7;
+    --tr-text: #232927;
+    --tr-muted: #68716d;
+    --tr-border: #e4e8e5;
+    --tr-accent: #23685c;
+    --tr-soft: #edf4f0;
+    --tr-on-accent: #ffffff;
+    color: var(--tr-text);
+    background: var(--tr-bg);
+    font: 14px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    text-align: left;
+    min-width: 0;
+    color-scheme: light;
+  }
+  #tracerag-preview[data-appearance="dark"] {
+    --tr-bg: #191c1a;
+    --tr-panel: #202421;
+    --tr-text: #e9ede9;
+    --tr-muted: #a4afa7;
+    --tr-border: #363d37;
+    --tr-accent: #a8cdbb;
+    --tr-soft: #293b31;
+    --tr-on-accent: #19271f;
+    color-scheme: dark;
+  }
+  #tracerag-preview * { box-sizing: border-box; }
+  #tracerag-preview h1, #tracerag-preview h2, #tracerag-preview p { margin: 0; }
+  #tracerag-preview button, #tracerag-preview input { font: inherit; }
+  #tracerag-preview button, #tracerag-preview summary { cursor: pointer; }
+  #tracerag-preview button:focus-visible, #tracerag-preview summary:focus-visible {
+    outline: 2px solid var(--tr-accent); outline-offset: 4px;
+  }
+  #tracerag-preview .tr-head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px; padding: 18px 26px; border-bottom: 1px solid var(--tr-border);
+  }
+  #tracerag-preview .tr-brand { font-size: 19px; font-weight: 600; letter-spacing: -.6px; }
+  #tracerag-preview .tr-brand small { font-size: 12px; font-weight: 400; color: var(--tr-muted); letter-spacing: 0; margin-left: 16px; }
+  #tracerag-preview .tr-theme {
+    display: flex; align-items: center; gap: 8px; background: var(--tr-bg);
+    color: var(--tr-text); border: 1px solid var(--tr-border); border-radius: 6px;
+    padding: 7px 11px; white-space: nowrap;
+  }
+  #tracerag-preview .tr-layout { display: grid; grid-template-columns: 172px minmax(0, 1fr); }
+  #tracerag-preview .tr-sidebar { padding: 28px 14px; border-right: 1px solid var(--tr-border); }
+  #tracerag-preview .tr-section-label { font-size: 11px; color: var(--tr-muted); letter-spacing: .09em; text-transform: uppercase; }
+  #tracerag-preview .tr-sidebar .tr-section-label { padding: 0 12px; margin-bottom: 12px; }
+  #tracerag-preview .tr-nav { display: flex; align-items: center; gap: 10px; padding: 9px 12px; color: var(--tr-muted); margin-bottom: 3px; }
+  #tracerag-preview .tr-nav.current { background: var(--tr-soft); color: var(--tr-accent); border-radius: 5px; font-weight: 500; }
+  #tracerag-preview svg { width: 16px; height: 16px; flex-shrink: 0; }
+  #tracerag-preview .tr-main { padding: 30px; min-width: 0; }
+  #tracerag-preview .tr-title { display: flex; align-items: start; justify-content: space-between; gap: 16px; margin-bottom: 24px; }
+  #tracerag-preview h1 { font-size: 27px; font-weight: 500; letter-spacing: -.8px; line-height: 1.3; }
+  #tracerag-preview .tr-description { margin-top: 7px; color: var(--tr-muted); }
+  #tracerag-preview .tr-demo { font-size: 11px; color: var(--tr-muted); white-space: nowrap; padding-top: 6px; }
+  #tracerag-preview .tr-query {
+    display: flex; gap: 12px; align-items: center; border: 1px solid var(--tr-border);
+    border-radius: 7px; padding: 7px 7px 7px 15px; margin: 8px 0 12px;
+  }
+  #tracerag-preview .tr-query input { min-width: 0; flex: 1; width: 100%; border: 0; background: transparent; color: var(--tr-text); outline-offset: 5px; padding: 6px 0; }
+  #tracerag-preview .tr-run { background: var(--tr-accent); color: var(--tr-on-accent); border: 0; border-radius: 5px; padding: 9px 15px; white-space: nowrap; font-weight: 500; }
+  #tracerag-preview .tr-helper { color: var(--tr-muted); font-size: 12px; }
+  #tracerag-preview .tr-result { margin-top: 32px; display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(210px, 1fr); gap: 30px; }
+  #tracerag-preview .tr-answer { border-top: 1px solid var(--tr-border); padding-top: 18px; }
+  #tracerag-preview .tr-answer p { margin-top: 13px; line-height: 1.8; }
+  #tracerag-preview .tr-cite { display: inline-block; color: var(--tr-accent); background: var(--tr-soft); padding: 0 5px; border-radius: 3px; font-size: 12px; text-decoration: none; }
+  #tracerag-preview .tr-note { margin-top: 24px; padding-left: 13px; border-left: 2px solid var(--tr-border); color: var(--tr-muted); font-size: 12px; }
+  #tracerag-preview .tr-sources { border-top: 1px solid var(--tr-border); padding-top: 18px; min-width: 0; }
+  #tracerag-preview .tr-sources h2 { font-weight: 500; font-size: 13px; }
+  #tracerag-preview details { padding: 15px 0; border-bottom: 1px solid var(--tr-border); }
+  #tracerag-preview summary { list-style-position: outside; margin-left: 13px; }
+  #tracerag-preview .tr-source-title { color: var(--tr-text); font-size: 13px; font-weight: 500; }
+  #tracerag-preview .tr-meta { display: block; color: var(--tr-muted); font-size: 12px; margin: 5px 0 0 13px; }
+  #tracerag-preview blockquote { margin: 12px 0 0 13px; color: var(--tr-muted); font-size: 13px; line-height: 1.7; }
+  #tracerag-preview .tr-bottom { display: flex; justify-content: space-between; gap: 16px; margin-top: 35px; padding-top: 14px; border-top: 1px solid var(--tr-border); color: var(--tr-muted); font-size: 11px; }
+  #tracerag-preview .tr-live { color: var(--tr-accent); }
+  @media (max-width: 760px) {
+    #tracerag-preview .tr-layout { grid-template-columns: 1fr; }
+    #tracerag-preview .tr-sidebar { display: flex; gap: 5px; flex-wrap: wrap; border-right: 0; border-bottom: 1px solid var(--tr-border); padding: 10px 16px; }
+    #tracerag-preview .tr-sidebar .tr-section-label { display: none; }
+    #tracerag-preview .tr-nav { padding: 7px 9px; font-size: 12px; }
+    #tracerag-preview .tr-main { padding: 24px 20px; }
+    #tracerag-preview .tr-head { padding: 15px 20px; }
+    #tracerag-preview .tr-result { grid-template-columns: 1fr; gap: 26px; }
+    #tracerag-preview .tr-brand small { display: none; }
+  }
+  @media (max-width: 420px) {
+    #tracerag-preview .tr-title { flex-direction: column; gap: 2px; }
+    #tracerag-preview .tr-query { flex-wrap: wrap; padding: 10px; }
+    #tracerag-preview .tr-query input { flex-basis: 100%; }
+    #tracerag-preview .tr-run { width: 100%; }
+    #tracerag-preview .tr-bottom { flex-direction: column; gap: 4px; }
+  }
+</style>
+<div id="tracerag-preview" data-appearance="light" aria-label="TraceRAG interface preview">
+  <header class="tr-head">
+    <div class="tr-brand">TraceRAG <small>Document workspace</small></div>
+    <button type="button" class="tr-theme" id="tr-theme-toggle" aria-pressed="false"><i data-lucide="moon" aria-hidden="true"></i><span id="tr-theme-label">Dark mode</span></button>
+  </header>
+  <div class="tr-layout">
+    <aside class="tr-sidebar" aria-label="Workspace navigation preview">
+      <p class="tr-section-label">Workspace</p>
+      <span class="tr-nav current" aria-current="page"><i data-lucide="search" aria-hidden="true"></i>Ask documents</span>
+      <span class="tr-nav"><i data-lucide="files" aria-hidden="true"></i>Library</span>
+      <span class="tr-nav"><i data-lucide="scan-text" aria-hidden="true"></i>Evidence</span>
+    </aside>
+    <main class="tr-main">
+      <div class="tr-title">
+        <div><h1>Ask your documents</h1><p class="tr-description">Find an answer. Read the source.</p></div>
+        <span class="tr-demo">Design preview</span>
+      </div>
+      <label for="tr-sample-question" class="tr-section-label">Question</label>
+      <div class="tr-query">
+        <input id="tr-sample-question" value="How does an operating system manage resources?" readonly aria-describedby="tr-sample-note">
+        <button type="button" class="tr-run" id="tr-run-sample">Run sample</button>
+      </div>
+      <p class="tr-helper" id="tr-sample-note">Sample content for the design preview.</p>
+      <div class="tr-result" id="tr-sample-result">
+        <article class="tr-answer">
+          <div class="tr-section-label">Answer</div>
+          <p>An operating system manages a computer’s hardware and provides services for applications. <a href="#tr-source-one" class="tr-cite" data-open-source="tr-source-one" aria-label="Read source 1">1</a></p>
+          <p>It allocates processor time, manages memory, and coordinates access to files and devices. <a href="#tr-source-two" class="tr-cite" data-open-source="tr-source-two" aria-label="Read source 2">2</a></p>
+          <div class="tr-note">Each reference opens the original passage alongside the answer.</div>
+        </article>
+        <section class="tr-sources" aria-label="Source passages">
+          <h2>Sources <span class="tr-helper">/ 2 passages</span></h2>
+          <details id="tr-source-one" open>
+            <summary><span class="tr-source-title">Operating systems · Introduction</span></summary>
+            <span class="tr-meta">PDF · Page 4 · Reference 1</span>
+            <blockquote>“An operating system manages a computer’s hardware and provides services for applications.”</blockquote>
+          </details>
+          <details id="tr-source-two">
+            <summary><span class="tr-source-title">Resource management</span></summary>
+            <span class="tr-meta">PDF · Page 12 · Reference 2</span>
+            <blockquote>“It allocates processor time, manages memory, and coordinates access to files and devices.”</blockquote>
+          </details>
+        </section>
+      </div>
+      <div class="tr-bottom"><span>TraceRAG / Document intelligence</span><span class="tr-live" id="tr-preview-status" aria-live="polite">Light appearance</span></div>
+    </main>
+  </div>
+</div>
+<script>
+(() => {
+  const root = document.getElementById('tracerag-preview');
+  const toggle = root.querySelector('#tr-theme-toggle');
+  const label = root.querySelector('#tr-theme-label');
+  const status = root.querySelector('#tr-preview-status');
+  const saved = window.openai?.widgetState;
+  const state = { dark: saved?.modelContent?.appearance === 'dark', accent: '#23685c' };
+  function render() {
+    root.dataset.appearance = state.dark ? 'dark' : 'light';
+    root.style.setProperty('--tr-accent', state.dark ? '#a8cdbb' : state.accent);
+    toggle.setAttribute('aria-pressed', String(state.dark));
+    label.textContent = state.dark ? 'Light mode' : 'Dark mode';
+    status.textContent = state.dark ? 'Dark appearance' : 'Light appearance';
+  }
+  toggle.addEventListener('click', () => {
+    state.dark = !state.dark;
+    render();
+    if (window.openai?.setWidgetState) {
+      window.openai.setWidgetState({ modelContent: { appearance: state.dark ? 'dark' : 'light' }, privateContent: {} }).catch(() => {});
+    }
+  });
+  root.querySelectorAll('[data-open-source]').forEach(link => link.addEventListener('click', event => {
+    event.preventDefault();
+    const detail = root.querySelector('#' + link.dataset.openSource);
+    detail.open = true;
+    detail.querySelector('summary').focus();
+  }));
+  root.querySelector('#tr-run-sample').addEventListener('click', () => {
+    root.querySelector('#tr-source-one').open = true;
+    root.querySelector('#tr-source-two').open = true;
+    status.textContent = 'Sample answer · 2 source passages';
+  });
+  window.addEventListener('openai:set_globals', event => {
+    const incoming = event.detail?.globals?.widgetState?.modelContent?.appearance;
+    if (incoming === 'light' || incoming === 'dark') { state.dark = incoming === 'dark'; render(); }
+  });
+  render();
+  if (globalThis.Tweak) {
+    const tweak = new Tweak({ container: root, onChange: render });
+    tweak.addColorPicker(state, 'accent', { label: 'Light-mode accent', reference: '--tr-accent' });
+  }
+})();
+</script>

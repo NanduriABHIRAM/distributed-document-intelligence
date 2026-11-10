@@ -41,6 +41,13 @@ class EvidenceClaim:
     source: SourceReference
     extraction_method: str
     validation_status: str = "PENDING"
+    negated: bool = False
+    modality: Optional[str] = None
+    attribution: Optional[str] = None
+    scope: Optional[str] = None
+    event_date: Optional[str] = None
+    date_kind: str = "unknown"
+
 
 
 @dataclass
@@ -58,6 +65,10 @@ class EvidenceEvent:
     source: SourceReference
     extraction_method: str = "rule_based_event_extractor"
     validation_status: str = "PENDING"
+    negated: bool = False
+    modality: Optional[str] = None
+    date_kind: str = "unknown"
+
 
 
 @dataclass

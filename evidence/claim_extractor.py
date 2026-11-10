@@ -1,4 +1,5 @@
 import hashlib
+from evidence.qualifiers import qualifiers
 import spacy
 
 from evidence.schemas import EvidenceClaim, SourceReference
@@ -123,7 +124,8 @@ def extract_claims(chunk: dict, nlp, doc=None) -> list[EvidenceClaim]:
             object=object_text,
             source=source,
             extraction_method="spacy_dependency_parser",
-            validation_status="PENDING"
+            validation_status="PENDING",
+            **qualifiers(claim_text)
         )
 
         claims.append(claim)

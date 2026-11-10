@@ -11,33 +11,56 @@ from retrieval.hybrid_retriever import HybridRetriever
 from retrieval.ollama_client import OllamaEmbedder
 from retrieval.vector_retriever import VectorRetriever
 from rag.ollama_client import OllamaClient
+from configs.runtime import data_path, option
+from evidence.catalog import build_graph
+from retrieval.rrf import reciprocal_rank_fusion
+from retrieval.reranker import rerank
 
 
 ROOT = Path(__file__).resolve().parents[1]
-CHUNKS_PATH = ROOT / "data" / "processed" / "chunks.jsonl"
-EVIDENCE_DIR = ROOT / "data" / "evidence"
-VECTOR_INDEX_PATH = ROOT / "data" / "processed" / "chunks.faiss"
-VECTOR_RECORDS_PATH = ROOT / "data" / "processed" / "chunks.vectors.json"
-VECTOR_METADATA_PATH = ROOT / "data" / "processed" / "chunks.vectors.meta.json"
+CHUNKS_PATH = data_path('chunks_path', 'data/processed/chunks.jsonl')
+EVIDENCE_DIR = data_path('evidence_dir', 'data/evidence')
+VECTOR_INDEX_PATH = data_path('vector_index_path', 'data/processed/chunks.faiss')
+VECTOR_RECORDS_PATH = data_path('vector_records_path', 'data/processed/chunks.vectors.json')
+VECTOR_METADATA_PATH = VECTOR_RECORDS_PATH.with_suffix('.meta.json')
 
+def _stamp(path):
+    return (path.stat().st_mtime_ns, path.stat().st_size) if path.exists() else None
+
+def get_graph():
+    signature = (_stamp(CHUNKS_PATH), *(_stamp(EVIDENCE_DIR / f'{kind}.jsonl')
+                 for kind in ('entities','claims','events','relationships')))
+    return _cached_graph(signature)
 
 @lru_cache(maxsize=1)
+def _cached_graph(signature):
+    return build_graph(load_chunks(), EVIDENCE_DIR)
+
+
+
 def load_chunks() -> tuple[dict, ...]:
+    return _cached_chunks(_stamp(CHUNKS_PATH))
+
+@lru_cache(maxsize=1)
+def _cached_chunks(signature) -> tuple[dict, ...]:
     if not CHUNKS_PATH.exists():
         return ()
     with CHUNKS_PATH.open("r", encoding="utf-8") as source:
         return tuple(json.loads(line) for line in source if line.strip())
 
 
-@lru_cache(maxsize=1)
 def get_retriever() -> BM25Retriever:
+    return _cached_retriever(_stamp(CHUNKS_PATH))
+
+@lru_cache(maxsize=1)
+def _cached_retriever(signature) -> BM25Retriever:
     retriever = BM25Retriever()
     retriever.fit(list(load_chunks()))
     return retriever
 
 
 @lru_cache(maxsize=4)
-def _load_vector_retriever(index_mtime_ns: int, records_mtime_ns: int) -> VectorRetriever:
+def _load_vector_retriever(index_mtime_ns: int, records_mtime_ns: int, metadata_mtime_ns: int) -> VectorRetriever:
     return VectorRetriever.load(VECTOR_INDEX_PATH, VECTOR_RECORDS_PATH, OllamaEmbedder())
 
 
@@ -48,17 +71,31 @@ def get_vector_retriever() -> VectorRetriever | None:
     metadata = json.loads(VECTOR_METADATA_PATH.read_text(encoding="utf-8"))
     if not metadata.get("complete", False):
         return None
-    return _load_vector_retriever(VECTOR_INDEX_PATH.stat().st_mtime_ns, VECTOR_RECORDS_PATH.stat().st_mtime_ns)
+    from ingestion.utils import sha256_file
+    if not CHUNKS_PATH.exists() or metadata.get('chunks_sha256') != sha256_file(CHUNKS_PATH):
+        return None
+    return _load_vector_retriever(VECTOR_INDEX_PATH.stat().st_mtime_ns, VECTOR_RECORDS_PATH.stat().st_mtime_ns, VECTOR_METADATA_PATH.stat().st_mtime_ns)
 
 
 def search_chunks(query: str, top_k: int) -> tuple[list[dict], dict]:
     """Prefer hybrid search, but keep the service usable when local embeddings fail."""
-    dense = get_vector_retriever()
+    candidates = max(top_k * 5, 50)
     try:
-        return HybridRetriever(get_retriever(), dense).search(query, top_k)
+        dense = get_vector_retriever()
+        results, metadata = HybridRetriever(get_retriever(), dense, int(option('retrieval','rrf_k',60,'RRF_K'))).search(query, candidates)
     except Exception as error:
-        results = get_retriever().search(query, top_k)
-        return results, {"mode": "bm25_fallback", "reason": type(error).__name__, "lexical_candidates": len(results), "dense_candidates": 0}
+        results = get_retriever().search(query, candidates)
+        metadata = {'mode':'bm25_fallback','reason':type(error).__name__, 'lexical_candidates':len(results),'dense_candidates':0}
+    expanded = get_graph().expand_chunks([r['chunk_id'] for r in results[:top_k]])
+    metadata['graph_candidates'] = len(expanded)
+    if expanded:
+        results = reciprocal_rank_fusion([results,expanded])
+    model = option('models','reranker',None,'RERANKER_MODEL')
+    metadata['reranker'] = model
+    if model:
+        results = rerank(query, results, model, top_k)
+    return results[:top_k], metadata
+
 
 
 def documents() -> list[dict]:
