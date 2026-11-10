@@ -1,0 +1,16 @@
+{
+  "chunks": 100,
+  "entities": 274,
+  "claims": 141,
+  "events": 162,
+  "relationships": 10,
+  "invalid": 3,
+  "elapsed_seconds": 1.348,
+  "chunks_per_second": 74.199,
+  "extractors": {
+    "entities": "spacy_ner",
+    "claims": "spacy_dependency_parser",
+    "events": "rule_based_event_extractor",
+    "relationships": "spacy_dependency_relationship_extractor"
+  }
+}

@@ -1,0 +1,23 @@
+app:
+  name: Distributed Document Intelligence
+  environment: development
+
+processing:
+  chunk_size: 800
+  chunk_overlap: 120
+  preserve_page_boundaries: true
+
+retrieval:
+  lexical_top_k: 100
+  vector_top_k: 100
+  rrf_k: 60
+  final_top_k: 10
+
+evidence:
+  candidate_similarity_threshold: 0.80
+  nli_contradiction_threshold: 0.85
+  require_temporal_compatibility_check: true
+
+research:
+  benchmark_name: evidence-intelligence-benchmark
+  random_seed: 42
