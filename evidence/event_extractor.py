@@ -111,4 +111,44 @@ def extract_events(chunk: dict, nlp) -> list[EvidenceEvent]:
         event_object = extract_event_object(sentence)
 
         # An event should have at least an identifiable actor
-     
+        # or an identifiable affected object.
+        if actor is None and event_object is None:
+            continue
+
+        event_date = extract_event_date(sentence)
+
+        start = sentence.start_char
+        end = sentence.end_char
+
+        event_id = generate_event_id(
+            document_id=chunk["document_id"],
+            chunk_id=chunk["chunk_id"],
+            start=start,
+            end=end
+        )
+
+        source = SourceReference(
+            document_id=chunk["document_id"],
+            chunk_id=chunk["chunk_id"],
+            source_path=chunk["source_path"],
+            source_text=text,
+            location_type=chunk.get("location_type"),
+            location_number=chunk.get("location_number"),
+            start_offset=start,
+            end_offset=end
+        )
+
+        event = EvidenceEvent(
+            event_id=event_id,
+            event_type=action.upper(),
+            action=action,
+            actor=actor,
+            object=event_object,
+            event_date=event_date,
+            date_is_explicit=event_date is not None,
+            source=source
+        )
+
+        events.append(event)
+
+    return events

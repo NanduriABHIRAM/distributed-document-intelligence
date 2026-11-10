@@ -21,3 +21,21 @@ logs/
 target/
 .metals/
 .bloop/
+# Generated document data
+data/raw/
+data/processed/
+data/evidence/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+
+# Environment variables
+.env
+
+# Logs
+*.log
+
+# Test/cache files
+.pytest_cache/
