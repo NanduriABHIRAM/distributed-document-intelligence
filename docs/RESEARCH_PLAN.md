@@ -1,7 +1,7 @@
 # Research Plan
 
 ## Working research title
-Evidence-Centric Hybrid Retrieval for Distributed Document Intelligence with
+TraceRAG: Evidence-Centric Hybrid Retrieval with
 Contradiction Detection and Temporal Reasoning.
 
 ## Research questions

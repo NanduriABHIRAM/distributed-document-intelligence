@@ -1,5 +1,5 @@
 app:
-  name: Distributed Document Intelligence
+  name: TraceRAG
   environment: development
 
 processing:

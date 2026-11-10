@@ -1,4 +1,4 @@
-# Distributed Document Intelligence System with Hybrid Retrieval
+# TraceRAG — Evidence-Centric Hybrid Retrieval-Augmented Generation
 
 A research-oriented evidence intelligence platform for large document collections.
 It combines distributed document processing, claim extraction, evidence graphs,
@@ -68,8 +68,16 @@ npm run dev
 ```
 
 Open `http://localhost:5173`. The UI talks to the local API, returns source
-excerpts, and intentionally uses an extractive answer baseline until a configured
-local LLM and citation evaluation set are available.
+excerpts, and uses a grounded local Qwen answer when Ollama is running. The API
+automatically falls back to source excerpts if the model is unavailable or returns
+an answer with missing or invented citations.
+
+For student-friendly grounded answers, install Ollama and pull the configured model:
+
+```bash
+ollama pull qwen3:4b
+ollama serve
+```
 
 ## Current capabilities
 

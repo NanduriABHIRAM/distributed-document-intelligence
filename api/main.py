@@ -2,13 +2,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.data_store import dashboard_stats
+from api.telemetry import retrieval_telemetry
 from api.routes.documents import router as documents_router
 from api.routes.investigations import router as investigations_router
 
 app = FastAPI(
-    title="Distributed Document Intelligence",
-    description="Evidence-centric document intelligence API",
-    version="0.1.0",
+    title="TraceRAG",
+    description="Evidence-centric hybrid retrieval and grounded-answer API",
+    version="0.2.0",
 )
 
 app.add_middleware(
@@ -23,10 +24,10 @@ app.include_router(investigations_router)
 def health():
     return {
         "status": "ok",
-        "service": "distributed-document-intelligence",
-        "version": "0.1.0",
+        "service": "tracerag",
+        "version": "0.2.0",
     }
 
 @app.get("/dashboard")
 def dashboard():
-    return dashboard_stats()
+    return {**dashboard_stats(), "telemetry": retrieval_telemetry.snapshot()}

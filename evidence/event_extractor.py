@@ -87,11 +87,13 @@ def extract_event_date(sentence):
     return None
 
 
-def extract_events(chunk: dict, nlp) -> list[EvidenceEvent]:
+def extract_events(chunk: dict, nlp, doc=None) -> list[EvidenceEvent]:
 
     text = chunk["text"]
 
-    doc = nlp(text)
+    # The processor parses once per chunk and passes the document here. Keeping
+    # ``doc`` optional preserves the simple public API used by experiments.
+    doc = doc if doc is not None else nlp(text)
 
     events = []
 
