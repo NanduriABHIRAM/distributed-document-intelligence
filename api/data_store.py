@@ -32,6 +32,12 @@ def get_graph():
                  for kind in ('entities','claims','events','relationships')))
     return _cached_graph(signature)
 
+
+def rebuild_graph():
+    """Invalidate the local JSONL graph cache and build from current artifacts."""
+    _cached_graph.cache_clear()
+    return get_graph()
+
 @lru_cache(maxsize=1)
 def _cached_graph(signature):
     return build_graph(load_chunks(), EVIDENCE_DIR)
@@ -117,11 +123,18 @@ def dashboard_stats() -> dict:
     document_records = documents()
     vector_metadata = json.loads(VECTOR_METADATA_PATH.read_text(encoding="utf-8")) if VECTOR_METADATA_PATH.exists() else None
     generation_client = OllamaClient()
+    graph = get_graph() if evidence else None
     return {
         "documents": len(document_records),
         "source_files": ingestion.get("succeeded", len(document_records)),
         "chunks": ingestion.get("chunks", len(load_chunks())),
         "evidence": evidence,
+        "evidence_status": "completed" if evidence and evidence.get("complete") else "partial" if evidence else "not_started",
+        "graph": {
+            "nodes": len(graph.entities),
+            "edges": sum(1 for edge in graph.edges if edge["type"] == "RELATED_TO"),
+            "storage": "local_validated_evidence",
+        } if graph else {"nodes": 0, "edges": 0, "storage": "local_validated_evidence"},
         "retrieval": "hybrid RRF" if get_vector_retriever() else "BM25 (dense index not built)",
         "dense_index_ready": get_vector_retriever() is not None,
         "embeddings_generated": vector_metadata.get("vector_count", 0) if vector_metadata else 0,

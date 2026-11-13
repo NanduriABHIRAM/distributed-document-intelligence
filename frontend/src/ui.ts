@@ -5,6 +5,7 @@ export const navigation = [
   ['ask', 'Ask Documents'],
   ['library', 'Document Library'],
   ['evidence', 'Evidence Explorer'],
+  ['graph', 'Evidence Graph'],
 ] as const
 
 export type Panel = typeof navigation[number][0]

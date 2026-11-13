@@ -3,7 +3,7 @@ import type { FormEvent, ReactNode } from 'react'
 import { errorMessage, request } from './api'
 import { applyTheme, documentName, locationLabel, navigation, panelFromHash, retrievalLabel } from './ui'
 import type { Panel } from './ui'
-import type { Dashboard, DocumentRecord, Evidence, InvestigationResult } from './types'
+import type { Dashboard, DocumentRecord, Evidence, InvestigationResult, GraphData, GraphEdge, GraphNode } from './types'
 
 const examples = ['What are the main findings?', 'Which statements disagree?', 'What changed over time?']
 
@@ -194,6 +194,7 @@ export default function App() {
           ? <><p className="query-context">For: <span>{result.query}</span></p><EvidenceGrid items={result.evidence} activeEvidence={activeEvidence} setActiveEvidence={setActiveEvidence} /></>
           : <Empty title="No retrieved evidence yet" description="Run an investigation to inspect its supporting source passages." action="Ask documents" onAction={() => navigate('ask')} />}
       </section>}
+      {panel === 'graph' && <EvidenceGraph documents={documents || []} />}
     </main>
     <footer><span>TraceRAG keeps every result connected to its original evidence.</span><span>Document intelligence</span></footer>
     <div className="sr-only" role="status">{!loading && result ? `${result.evidence.length} supporting passages retrieved.` : ''}</div>
@@ -225,6 +226,7 @@ function Overview({ workspace, onAsk }: { workspace: Workspace; onAsk: () => voi
       <Metric value={documents && !documentsError ? value(new Set(documents.map(item => item.file_type.toLowerCase())).size) : '—'} label="source formats" />
       <Metric value={value(total)} label="evidence records" accent />
     </section>
+    <div className="workspace-footnote"><span>{stats?.graph ? `${stats.graph.nodes.toLocaleString()} graph entities · ${stats.graph.edges.toLocaleString()} validated relationships` : 'Graph statistics are unavailable.'}</span><a href="#graph">Open evidence graph</a></div>
     <section className="status-grid" aria-label="Workspace readiness">
       <Status label="Retrieval" value={!stats ? 'Unavailable' : stats.chunks === 0 ? 'Awaiting documents' : stats.dense_index_ready ? 'Hybrid search' : 'Keyword search'} ok={Boolean(stats?.chunks) && !statsError} />
       <Status label="Answer model" value={!stats ? 'Unavailable' : stats.generation_model_available ? 'Available' : 'Offline · excerpts available'} ok={stats?.generation_model_available === true && !statsError} />
@@ -267,14 +269,75 @@ function CitedText({ text, evidence, onCitation }: { text: string; evidence: Evi
 
 function Investigation({ result, activeEvidence, setActiveEvidence, onCitation }: { result: InvestigationResult; activeEvidence: string | null; setActiveEvidence: (value: string | null) => void; onCitation: (id: string) => void }) {
   if (!result.evidence.length) return <div className="investigation"><p className="query-context">For: <span>{result.query}</span></p><Empty title="No supporting evidence found" description="Try a more specific question or check whether the relevant document is in your library." /></div>
-  const cited = result.answer.mode === 'ollama_grounded' && result.answer.grounded && result.answer.citation_validation?.valid
+  const cited = (result.answer.mode === 'ollama_grounded' || result.answer.mode === 'ollama_citation_valid_unverified') && result.answer.citation_validation?.valid
+  const exact = result.answer.answer_status === 'VERIFIED_EXACT'
   return <section className="investigation" aria-label="Investigation result">
-    <div className="result-heading"><div><div className="eyebrow">Investigation result</div><h2>{cited ? 'Cited answer' : 'Source passages'}</h2></div><span className="system-state">{cited ? 'Source citations checked' : 'Excerpts available'}</span></div>
+    <div className="result-heading"><div><div className="eyebrow">Investigation result</div><h2>{cited ? 'Cited answer' : 'Source passages'}</h2></div><span className="system-state">{cited ? exact ? 'Exact source match' : 'Citations linked · paraphrase unverified' : 'Excerpts available'}</span></div>
     <p className="query-context">For: <span>{result.query}</span></p>
     <article className="answer-card"><span className="answer-kicker">{cited ? 'TraceRAG answer' : 'Evidence summary'}</span><p><CitedText text={result.answer.answer} evidence={result.evidence} onCitation={onCitation} /></p>{cited && <small>Select a reference to read its supporting passage.</small>}</article>
     <details className="retrieval-details"><summary>Search details <span>{retrievalLabel(result.retrieval.mode)}</span></summary><dl><div><dt>Keyword candidates</dt><dd>{result.retrieval.lexical_candidates ?? '—'}</dd></div><div><dt>Semantic candidates</dt><dd>{result.retrieval.dense_candidates ?? '—'}</dd></div><div><dt>Graph candidates</dt><dd>{result.retrieval.graph_candidates ?? '—'}</dd></div>{result.retrieval.latency_ms != null && <div><dt>Retrieval time</dt><dd>{(result.retrieval.latency_ms / 1000).toFixed(2)} s</dd></div>}</dl></details>
     <Reasoning result={result} />
     <EvidenceGrid items={result.evidence} activeEvidence={activeEvidence} setActiveEvidence={setActiveEvidence} />
+  </section>
+}
+
+const graphColour = (type: string) => ({ PERSON: '#6c83a2', ORGANIZATION: '#795e40', LOCATION: '#507766', DATE: '#8b687d', EVENT: '#a17036' }[type] || '#666b62')
+
+function EvidenceGraph({ documents }: { documents: DocumentRecord[] }) {
+  const [data, setData] = useState<GraphData | null>(null)
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
+  const [type, setType] = useState('')
+  const [documentId, setDocumentId] = useState('')
+  const [selected, setSelected] = useState<GraphNode | GraphEdge | null>(null)
+  const [zoom, setZoom] = useState(1)
+  const [offset, setOffset] = useState({ x: 0, y: 0 })
+  const drag = useRef<{ x: number; y: number } | null>(null)
+
+  useEffect(() => {
+    const controller = new AbortController()
+    setLoading(true); setError(''); setSelected(null)
+    const query = new URLSearchParams()
+    if (type) query.set('entity_type', type)
+    if (documentId) query.set('document_id', documentId)
+    if (search.trim()) query.set('search', search.trim())
+    request<GraphData>(`/graph${query.size ? `?${query}` : ''}`, { signal: controller.signal })
+      .then(value => { if (!controller.signal.aborted) setData(value) })
+      .catch(value => { if (!controller.signal.aborted) setError(errorMessage(value)) })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false) })
+    return () => controller.abort()
+  }, [type, documentId, search])
+
+  const types = useMemo(() => Array.from(new Set((data?.nodes || []).map(node => node.entity_type))).sort(), [data])
+  const nodes = data?.nodes || []
+  const nodeIds = new Set(nodes.map(node => node.id))
+  const edges = (data?.edges || []).filter(edge => nodeIds.has(edge.source) && nodeIds.has(edge.target))
+  const positions = useMemo(() => Object.fromEntries(nodes.map((node, index) => {
+    const angle = index * 2.399963229728653
+    const radius = 70 + 34 * Math.sqrt(index)
+    return [node.id, { x: 360 + Math.cos(angle) * radius, y: 245 + Math.sin(angle) * radius }]
+  })), [nodes]) as Record<string, { x: number; y: number }>
+  const selectedNode = selected && 'entity_type' in selected ? selected as GraphNode : null
+  const selectedEdge = selected && 'relationship_type' in selected ? selected as GraphEdge : null
+
+  return <section className="page graph-page">
+    <PageHeading eyebrow="Evidence graph" title="Relationships backed by source evidence.">Browse only validated entity relationships extracted from the current evidence records.</PageHeading>
+    <div className="graph-toolbar"><input className="library-search" value={search} onChange={event => setSearch(event.target.value)} placeholder="Search entities" aria-label="Search graph entities" />
+      <select value={type} onChange={event => setType(event.target.value)} aria-label="Filter by entity type"><option value="">All entity types</option>{types.map(value => <option key={value}>{value}</option>)}</select>
+      <select value={documentId} onChange={event => setDocumentId(event.target.value)} aria-label="Filter by document"><option value="">All documents</option>{documents.map(document => <option key={document.document_id} value={document.document_id}>{documentName(document.source_path, document.document_id)}</option>)}</select>
+      <div className="graph-zoom"><button type="button" onClick={() => setZoom(value => Math.min(2.4, value + .2))}>+</button><button type="button" onClick={() => setZoom(value => Math.max(.5, value - .2))}>−</button><button type="button" onClick={() => { setZoom(1); setOffset({ x: 0, y: 0 }) }}>Reset</button></div>
+    </div>
+    {loading ? <div className="loading-state" role="status"><span className="pulse" /><p>Loading evidence graph…</p></div>
+      : error ? <Notice message={error} />
+      : !nodes.length ? <Empty title="No evidence relationships available" description="No validated entity relationships were found in the current evidence output. Run evidence extraction, then rebuild the graph." />
+      : <>{data?.truncated && <p className="field-note">Showing the first 800 matching entities, prioritising relationship endpoints. Search or filter to narrow the graph.</p>}<div className="graph-layout"><div className="graph-canvas" onPointerDown={event => { drag.current = { x: event.clientX - offset.x, y: event.clientY - offset.y }; event.currentTarget.setPointerCapture(event.pointerId) }} onPointerMove={event => { if (drag.current) setOffset({ x: event.clientX - drag.current.x, y: event.clientY - drag.current.y }) }} onPointerUp={() => { drag.current = null }}>
+        <svg viewBox="0 0 720 490" role="img" aria-label={`${nodes.length} entities and ${edges.length} relationships`}><g transform={`translate(${offset.x} ${offset.y}) scale(${zoom})`}>
+          {edges.map(edge => { const a = positions[edge.source]; const b = positions[edge.target]; if (!a || !b) return null; return <g key={edge.id} className="graph-edge" onClick={() => setSelected(edge)}><line x1={a.x} y1={a.y} x2={b.x} y2={b.y} /><text x={(a.x + b.x) / 2} y={(a.y + b.y) / 2}>{edge.label}</text></g> })}
+          {nodes.map(node => { const point = positions[node.id]; return <g key={node.id} className={`graph-node${selectedNode?.id === node.id ? ' active' : ''}`} transform={`translate(${point.x} ${point.y})`} onClick={() => setSelected(node)}><circle r="18" fill={graphColour(node.entity_type)} /><text y="35">{node.label.length > 20 ? `${node.label.slice(0, 19)}…` : node.label}</text></g> })}
+        </g></svg></div>
+        <aside className="graph-details"><h2>{selectedNode ? selectedNode.label : selectedEdge ? selectedEdge.label : 'Select a node or relationship'}</h2>{selectedNode && <><p><b>{selectedNode.entity_type}</b></p><dl><div><dt>Document</dt><dd>{selectedNode.document_id || '—'}</dd></div><div><dt>Chunk</dt><dd>{selectedNode.chunk_id || '—'}</dd></div><div><dt>Source</dt><dd>{String(selectedNode.source.source_path || '—')}</dd></div></dl><a href="#library">Open document library</a></>}{selectedEdge && <><p>{selectedEdge.relationship_type}</p><dl><div><dt>Supporting chunk</dt><dd>{String(selectedEdge.provenance.chunk_id || '—')}</dd></div><div><dt>Location</dt><dd>{String(selectedEdge.provenance.location_type || 'source')} {String(selectedEdge.provenance.location_number || '')}</dd></div><div><dt>Source</dt><dd>{String(selectedEdge.provenance.source_path || '—')}</dd></div></dl></>}</aside>
+      </div></>}
   </section>
 }
 

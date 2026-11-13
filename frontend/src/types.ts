@@ -14,7 +14,8 @@ export type Answer = {
   answer: string
   grounded: boolean
   mode: string
-  citation_validation?: { valid: boolean; citations: string[]; errors: string[] }
+  answer_status?: 'VERIFIED_EXACT' | 'CITATION_VALID_UNVERIFIED' | 'UNSUPPORTED' | 'INSUFFICIENT_EVIDENCE' | string
+  citation_validation?: { valid: boolean; citations: string[]; errors: string[]; warnings?: string[]; semantic_entailment_verified?: boolean }
 }
 
 export type Retrieval = {
@@ -51,6 +52,8 @@ export type Dashboard = {
   retrieval: string
   dense_index_ready: boolean
   generation_model_available?: boolean
+  evidence_status?: 'completed' | 'partial' | 'not_started' | string
+  graph?: { nodes: number; edges: number; storage: string }
   evidence?: {
     entities: number
     claims: number
@@ -68,3 +71,7 @@ export type DocumentRecord = {
   file_type: string
   chunk_count: number
 }
+
+export type GraphNode = { id: string; label: string; entity_type: string; document_id?: string; chunk_id?: string; source: Record<string, unknown> }
+export type GraphEdge = { id: string; source: string; target: string; label: string; relationship_type: string; provenance: Record<string, unknown> }
+export type GraphData = { nodes: GraphNode[]; edges: GraphEdge[]; truncated?: boolean }

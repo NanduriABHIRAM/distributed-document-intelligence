@@ -5,6 +5,8 @@ from api.data_store import dashboard_stats
 from api.telemetry import retrieval_telemetry
 from api.routes.documents import router as documents_router
 from api.routes.investigations import router as investigations_router
+from api.routes.graph import router as graph_router
+from api.routes.spark import router as spark_router
 
 app = FastAPI(
     title="TraceRAG",
@@ -19,6 +21,8 @@ app.add_middleware(
 )
 app.include_router(documents_router)
 app.include_router(investigations_router)
+app.include_router(graph_router)
+app.include_router(spark_router)
 
 @app.get("/health")
 def health():

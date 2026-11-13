@@ -54,6 +54,7 @@ python -m venv .venv
 source .venv/bin/activate
 
 pip install -r requirements.txt
+python -m spacy download en_core_web_sm
 cp .env.example .env  # On Windows: Copy-Item .env.example .env
 python -m evidence.processor --chunks data/processed/chunks.jsonl --output data/evidence
 uvicorn api.main:app --reload
@@ -67,17 +68,25 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:5173`. The UI talks to the local API, returns source
-excerpts, and uses a grounded local Qwen answer when Ollama is running. The API
-automatically falls back to source excerpts if the model is unavailable or returns
-an answer with missing, invented, or unsupported citations. Current support validation accepts complete source sentences; paraphrases fall back to excerpts.
+Open `http://localhost:5173`. The UI includes an Evidence Graph backed by validated
+JSONL records and an answer path that distinguishes exact quotations from cited
+paraphrases. The API falls back to source passages if generation fails or a citation
+is missing, invented, or unsupported. Paraphrases are shown as citation-valid but
+semantic support remains explicitly unverified unless an NLI verifier is added.
 
 For student-friendly grounded answers, install Ollama and pull the configured model:
 
 ```bash
 ollama pull qwen3:4b
+ollama pull bge-m3
 ollama serve
 ```
+
+Useful graph API endpoints are `GET /graph`, `GET /graph/stats`,
+`GET /graph/entities/{entity_id}`, `GET /graph/relationships/{relationship_id}` and
+`POST /graph/rebuild`. Spark status is available at `GET /spark/status`; `POST
+/spark/run` starts the configured local Spark job asynchronously only after its JAR
+has been built.
 
 ## Current capabilities
 

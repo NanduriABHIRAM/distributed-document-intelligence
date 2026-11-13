@@ -32,3 +32,9 @@ paths:
   evidence_dir: data/evidence
   vector_index_path: data/processed/chunks.faiss
   vector_records_path: data/processed/chunks.vectors.json
+
+spark:
+  master: local[*]
+  partitions: 4
+  output_path: data/spark-output
+  jar_path: spark-scala/target/scala-2.12/distributed-document-intelligence-etl_2.12-0.1.0.jar
