@@ -242,3 +242,37 @@ footer { display: flex; gap: 16px; justify-content: space-between; border-top: 1
   input { font-size: 16px !important; }
 }
 @media (prefers-reduced-motion: reduce) { .pulse { animation: none; } }
+
+.topbar { flex-wrap: wrap; gap: 18px; padding-top: 16px; }
+.topbar nav { order: 3; width: 100%; min-height: 44px; overflow-x: auto; }
+.header-tools { margin-left: auto; }
+.pipeline-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; margin-bottom: 22px; }
+.pipeline-grid .status-card { background: var(--surface); min-height: 100px; }
+.rag-settings { display: flex; align-items: center; flex-wrap: wrap; gap: 14px; margin-bottom: 20px; }
+.rag-settings span { color: var(--muted); font-size: 12px; }
+.rag-settings select, .ocr-form select { padding: 10px; background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: 5px; }
+select:focus-visible, .graph-node:focus-visible, .graph-edge:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.ocr-form { display: grid; gap: 14px; max-width: 760px; padding: 26px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+.ocr-form label { font-weight: 500; }
+.ocr-form label span { display: block; font-size: 12px; color: var(--muted); font-weight: 400; }
+.ocr-form input { width: 100%; padding: 20px; border: 1px dashed var(--accent); border-radius: 5px; }
+.ocr-form .primary { margin: 0; justify-self: start; }
+.ocr-page { border: 1px solid var(--line); border-radius: 6px; padding: 22px; margin: 14px 0; }
+.ocr-page h3 { display: flex; justify-content: space-between; margin-bottom: 14px; }
+.ocr-page h3 span { color: var(--muted); font-size: 12px; }
+.ocr-page pre { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; max-height: 450px; overflow: auto; }
+.graph-canvas { overflow: auto; height: 570px; background-image: radial-gradient(var(--line) 1px, transparent 1px); background-size: 18px 18px; }
+.graph-canvas svg { max-width: none; }
+.graph-legend { display: flex; flex-wrap: wrap; gap: 12px 20px; margin-bottom: 14px; font-size: 11px; color: var(--muted); }
+.graph-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.graph-legend i { width: 9px; height: 9px; border-radius: 50%; }
+.graph-edge line { stroke-width: 1.8; opacity: .65; }
+.graph-edge:hover line, .graph-edge:focus-visible line { stroke: var(--accent); stroke-width: 4; }
+.graph-edge text { font-size: 11px; stroke-width: 5px; }
+.graph-node text { font-size: 12px; font-weight: 500; paint-order: stroke; stroke: var(--surface); stroke-width: 5px; stroke-linejoin: round; }
+.graph-node.dimmed, .graph-edge.dimmed { opacity: .15; }
+.graph-node:hover circle, .graph-node:focus-visible circle { stroke: var(--accent); stroke-width: 4px; }
+.connection-list { display: grid; gap: 8px; max-height: 200px; overflow: auto; }
+.connection-list button { text-align: left; }
+@media (max-width: 700px) { .pipeline-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } .graph-canvas { height: 450px; } }
+@media (max-width: 420px) { .pipeline-grid { grid-template-columns: 1fr; } .ocr-form { padding: 16px; } }

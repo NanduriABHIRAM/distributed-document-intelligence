@@ -42,7 +42,7 @@ that must be configured and evaluated before research results are reported.
 - `tests/` automated tests
 - `data/` local data directories (ignored by Git)
 
-## Quick start (Python scaffold)
+## Quick start
 
 Python 3.11 is recommended.
 
@@ -56,6 +56,8 @@ source .venv/bin/activate
 pip install -r requirements.txt
 python -m spacy download en_core_web_sm
 cp .env.example .env  # On Windows: Copy-Item .env.example .env
+# Place your input documents in data/raw before ingestion.
+python -m ingestion.cli --input data/raw --output data/processed --parquet
 python -m evidence.processor --chunks data/processed/chunks.jsonl --output data/evidence
 uvicorn api.main:app --reload
 ```
@@ -87,6 +89,21 @@ Useful graph API endpoints are `GET /graph`, `GET /graph/stats`,
 `POST /graph/rebuild`. Spark status is available at `GET /spark/status`; `POST
 /spark/run` starts the configured local Spark job asynchronously only after its JAR
 has been built.
+
+## Scala implementation and final project
+
+The Scala/Spark implementation includes typed input schemas, reason-coded data
+quality checks, corpus and partition analytics, a distributed BM25 inverted index
+and search CLI, evidence/source integrity joins, explicit-date timelines, claim
+review groups, graph degrees, and iterative PageRank.
+
+- [Scala build, demo, algorithms, and output reference](spark-scala/README.md)
+- [Final project architecture and presentation walkthrough](docs/FINAL_PROJECT.md)
+- [Recorded validation results](docs/VALIDATION.md)
+
+Build with `sbt test package` from `spark-scala` using Java 17. The existing Spark
+API launch command remains compatible. Run `python scripts/package_project.py`
+from the repository root to create the source/demo/JAR archive in `releases/`.
 
 ## Current capabilities
 
@@ -125,3 +142,26 @@ same query set. Treat model confidence as an uncalibrated score until validated.
 ## Verification and remaining research work
 
 See [the implementation checklist and reproducible commands](docs/IMPLEMENTATION_STATUS.md). Local fixture tests and frontend builds are verified separately from external model/database/cluster integrations and real-corpus research experiments. Do not interpret implemented adapters as measured research results.
+# RAG workspace, OCR, and graph navigation
+
+The web UI includes a **RAG Workspace** tab with corpus/model readiness, a
+3–20 passage retrieval selector, cited answers, and retrieval diagnostics.
+It uses the same investigation endpoint as Ask Documents.
+
+The **OCR** tab accepts PDF, PNG, and JPEG files up to 20 MB and 50 pages.
+Automatic mode preserves embedded text and recognizes pages without text;
+force mode recognizes every page. Review the page previews and download a
+text file, then ingest that file through the existing ingestion workflow.
+Preview uploads are not persisted or automatically indexed. PDF ingestion
+also uses OCR for pages without embedded text.
+
+OCR requires Tesseract English language data on the API/ingestion host.
+Install Tesseract and set `TESSDATA_PREFIX` to the directory containing
+`eng.traineddata` before starting the API or ingestion command. Digital PDF
+text extraction works without it; scans return an actionable setup error
+when the language data is unavailable.
+
+In **Evidence Graph**, select an entity to highlight its neighboring entities
+and inspect relationships in the side panel. Labels appear for selected
+relationships and the selected entity's connections. Use zoom, scrolling,
+or dragging to explore larger graphs, and Reset to restore the pan/zoom.

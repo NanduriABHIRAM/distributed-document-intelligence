@@ -3,6 +3,8 @@ import type { Evidence } from './types'
 export const navigation = [
   ['overview', 'Overview'],
   ['ask', 'Ask Documents'],
+  ['rag', 'RAG Workspace'],
+  ['ocr', 'OCR'],
   ['library', 'Document Library'],
   ['evidence', 'Evidence Explorer'],
   ['graph', 'Evidence Graph'],

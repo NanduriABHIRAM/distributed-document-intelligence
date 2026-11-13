@@ -10,7 +10,9 @@ export async function request<T>(path: string, options: RequestInit = {}, timeou
   try {
     const response = await fetch(`/api${path}`, { ...options, signal: controller.signal })
     if (!response.ok) {
-      if (response.status === 422) throw new Error('Please enter a question between 2 and 500 characters.')
+      const payload = await response.json().catch(() => null)
+      if (typeof payload?.detail === 'string') throw new Error(payload.detail)
+      if (response.status === 422) throw new Error('Please check the supplied values and try again.')
       throw new Error('The service could not complete this request. Please try again.')
     }
     return await response.json() as T

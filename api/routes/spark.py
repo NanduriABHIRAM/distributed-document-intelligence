@@ -35,6 +35,10 @@ def _metrics() -> dict | None:
     return None
 
 
+def _log_path() -> Path:
+    return ROOT / "logs" / "spark-job.log"
+
+
 @router.get("/status")
 def status():
     with _lock:
@@ -42,7 +46,8 @@ def status():
         exit_code = None if running or _process is None else _process.returncode
     return {"state": "running" if running else "completed" if exit_code == 0 else "failed" if exit_code is not None else "not_started",
             "started_at": _started_at, "exit_code": exit_code, "metrics": _metrics(),
-            "output_path": str(_output_path())}
+            "output_path": str(_output_path()), "log_path": str(_log_path()),
+            "runtime_available": shutil.which("spark-submit") is not None}
 
 
 @router.post("/run", status_code=202)
@@ -59,12 +64,21 @@ def run():
         if not jar.is_file():
             raise HTTPException(status_code=503, detail="Spark job JAR is not built; run sbt package first")
         output = _output_path()
-        if output.exists():
+        if output.exists() or (output.parent.exists() and any(path.name.startswith(output.name + "-") for path in output.parent.iterdir())):
             raise HTTPException(status_code=409, detail="Configured Spark output already exists; choose a new output path")
+        if not CHUNKS_PATH.is_file():
+            raise HTTPException(status_code=409, detail="Ingest documents before starting Spark")
         master = option("spark", "master", "local[*]", "SPARK_MASTER")
         partitions = str(option("spark", "partitions", 4, "SPARK_PARTITIONS"))
         command = [executable, "--class", "DocumentETL", "--master", str(master), str(jar),
-                   str(CHUNKS_PATH), str(output), partitions, str(EVIDENCE_DIR)]
-        _process = subprocess.Popen(command, cwd=ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                   str(CHUNKS_PATH), str(output), partitions]
+        if EVIDENCE_DIR.is_dir() and all((EVIDENCE_DIR / f"{name}.jsonl").is_file() for name in ("entities", "relationships", "claims", "events")):
+            command.append(str(EVIDENCE_DIR))
+        _log_path().parent.mkdir(parents=True, exist_ok=True)
+        try:
+            with _log_path().open("wb") as log:
+                _process = subprocess.Popen(command, cwd=ROOT, stdout=log, stderr=subprocess.STDOUT)
+        except OSError as error:
+            raise HTTPException(status_code=503, detail="Spark could not start; check the configured runtime") from error
         _started_at = time()
     return {"state": "started", "output_path": str(output)}

@@ -21,6 +21,10 @@ logs/
 target/
 .metals/
 .bloop/
+.tools/
+spark-scala/project/project/
+spark-scala/.bsp/
+releases/
 # Generated document data
 data/raw/
 data/processed/

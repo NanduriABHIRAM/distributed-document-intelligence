@@ -4,6 +4,8 @@ import { errorMessage, request } from './api'
 import { applyTheme, documentName, locationLabel, navigation, panelFromHash, retrievalLabel } from './ui'
 import type { Panel } from './ui'
 import type { Dashboard, DocumentRecord, Evidence, InvestigationResult, GraphData, GraphEdge, GraphNode } from './types'
+import { OcrWorkspace } from './OcrWorkspace'
+import { layoutGraph } from './graphLayout'
 
 const examples = ['What are the main findings?', 'Which statements disagree?', 'What changed over time?']
 
@@ -53,6 +55,7 @@ export default function App() {
   const [panel, setPanel] = useState<Panel>(() => panelFromHash(window.location.hash))
   const [theme, setTheme] = useState<'light' | 'dark'>(() => document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light')
   const [query, setQuery] = useState('')
+  const [topK, setTopK] = useState(6)
   const [submittedQuery, setSubmittedQuery] = useState('')
   const [result, setResult] = useState<InvestigationResult | null>(null)
   const [loading, setLoading] = useState(false)
@@ -114,12 +117,12 @@ export default function App() {
     setSubmittedQuery(question)
     setResult(null)
     setActiveEvidence(null)
-    navigate('ask')
+    if (panel !== 'rag') navigate('ask')
     try {
       const value = await request<InvestigationResult>('/investigations/query', {
         method: 'POST', signal: controller.signal,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: question, top_k: 6 }),
+        body: JSON.stringify({ query: question, top_k: topK }),
       }, 150_000)
       if (activeRequest.current === controller && !controller.signal.aborted) {
         setResult({ ...value, query: value.query || question })
@@ -172,8 +175,18 @@ export default function App() {
 
     <main id="main-content" ref={mainRef} tabIndex={-1}>
       {panel === 'overview' && <Overview workspace={workspace} onAsk={() => navigate('ask')} />}
-      {panel === 'ask' && <section className="page ask-page">
-        <PageHeading eyebrow="Ask documents" title="Evidence before answers.">Ask a question in plain language. TraceRAG retrieves original passages before it responds.</PageHeading>
+      {panel === 'ocr' && <OcrWorkspace />}
+      {(panel === 'ask' || panel === 'rag') && <section className="page ask-page">
+        <PageHeading eyebrow={panel === 'rag' ? 'RAG workspace' : 'Ask documents'} title={panel === 'rag' ? 'From retrieval to grounded answers.' : 'Evidence before answers.'}>Ask a question in plain language. TraceRAG retrieves original passages before it responds.</PageHeading>
+        {panel === 'rag' && <>
+          <div className="pipeline-grid">
+            <Status label="01 / Corpus" value={stats ? `${stats.chunks.toLocaleString()} indexed passages` : 'Status unavailable'} ok={Boolean(stats?.chunks)} />
+            <Status label="02 / Retrieve" value={stats ? stats.dense_index_ready ? 'Hybrid keyword + semantic' : 'Keyword retrieval' : 'Status unavailable'} ok={Boolean(stats?.chunks)} />
+            <Status label="03 / Generate" value={stats ? stats.generation_model_available ? 'Answer model available' : 'Model offline · source excerpts' : 'Status unavailable'} ok={Boolean(stats?.generation_model_available)} />
+            <Status label="04 / Validate" value="Citations checked against sources" />
+          </div>
+          <div className="rag-settings"><label htmlFor="top-k">Passages to retrieve</label><select id="top-k" value={topK} disabled={loading} onChange={event => setTopK(Number(event.target.value))}>{[3, 6, 10, 20].map(count => <option key={count} value={count}>{count} passages</option>)}</select><span>Inspect the answer, retrieval counts, and source evidence below.</span></div>
+        </>}
         <form className="search" onSubmit={(event: FormEvent) => { event.preventDefault(); void investigate() }}>
           <span className="search-symbol" aria-hidden="true" />
           <input aria-label="Investigation query" aria-describedby={hasNoDocuments ? 'no-corpus-note' : undefined} aria-invalid={queryError ? true : undefined} value={query} onChange={event => { setQuery(event.target.value); setQueryError('') }} placeholder="Ask a question about your documents" minLength={2} maxLength={500} required disabled={hasNoDocuments} />
@@ -309,34 +322,32 @@ function EvidenceGraph({ documents }: { documents: DocumentRecord[] }) {
     return () => controller.abort()
   }, [type, documentId, search])
 
-  const types = useMemo(() => Array.from(new Set((data?.nodes || []).map(node => node.entity_type))).sort(), [data])
+  const types = useMemo(() => Array.from(new Set(['PERSON', 'ORGANIZATION', 'LOCATION', 'DATE', 'EVENT', ...(data?.nodes || []).map(node => node.entity_type)])).sort(), [data])
   const nodes = data?.nodes || []
   const nodeIds = new Set(nodes.map(node => node.id))
   const edges = (data?.edges || []).filter(edge => nodeIds.has(edge.source) && nodeIds.has(edge.target))
-  const positions = useMemo(() => Object.fromEntries(nodes.map((node, index) => {
-    const angle = index * 2.399963229728653
-    const radius = 70 + 34 * Math.sqrt(index)
-    return [node.id, { x: 360 + Math.cos(angle) * radius, y: 245 + Math.sin(angle) * radius }]
-  })), [nodes]) as Record<string, { x: number; y: number }>
+  const layout = useMemo(() => layoutGraph(data?.nodes || [], data?.edges || []), [data])
+  const positions = layout.positions
   const selectedNode = selected && 'entity_type' in selected ? selected as GraphNode : null
   const selectedEdge = selected && 'relationship_type' in selected ? selected as GraphEdge : null
+  const connected = new Set(selectedNode ? [selectedNode.id, ...edges.filter(edge => edge.source === selectedNode.id || edge.target === selectedNode.id).flatMap(edge => [edge.source, edge.target])] : [])
 
   return <section className="page graph-page">
     <PageHeading eyebrow="Evidence graph" title="Relationships backed by source evidence.">Browse only validated entity relationships extracted from the current evidence records.</PageHeading>
     <div className="graph-toolbar"><input className="library-search" value={search} onChange={event => setSearch(event.target.value)} placeholder="Search entities" aria-label="Search graph entities" />
       <select value={type} onChange={event => setType(event.target.value)} aria-label="Filter by entity type"><option value="">All entity types</option>{types.map(value => <option key={value}>{value}</option>)}</select>
       <select value={documentId} onChange={event => setDocumentId(event.target.value)} aria-label="Filter by document"><option value="">All documents</option>{documents.map(document => <option key={document.document_id} value={document.document_id}>{documentName(document.source_path, document.document_id)}</option>)}</select>
-      <div className="graph-zoom"><button type="button" onClick={() => setZoom(value => Math.min(2.4, value + .2))}>+</button><button type="button" onClick={() => setZoom(value => Math.max(.5, value - .2))}>−</button><button type="button" onClick={() => { setZoom(1); setOffset({ x: 0, y: 0 }) }}>Reset</button></div>
+      <div className="graph-zoom"><button type="button" aria-label="Zoom in" onClick={() => setZoom(value => Math.min(2.4, value + .2))}>+</button><button type="button" aria-label="Zoom out" onClick={() => setZoom(value => Math.max(.5, value - .2))}>−</button><button type="button" onClick={() => { setZoom(1); setOffset({ x: 0, y: 0 }) }}>Reset</button></div>
     </div>
     {loading ? <div className="loading-state" role="status"><span className="pulse" /><p>Loading evidence graph…</p></div>
       : error ? <Notice message={error} />
       : !nodes.length ? <Empty title="No evidence relationships available" description="No validated entity relationships were found in the current evidence output. Run evidence extraction, then rebuild the graph." />
-      : <>{data?.truncated && <p className="field-note">Showing the first 800 matching entities, prioritising relationship endpoints. Search or filter to narrow the graph.</p>}<div className="graph-layout"><div className="graph-canvas" onPointerDown={event => { drag.current = { x: event.clientX - offset.x, y: event.clientY - offset.y }; event.currentTarget.setPointerCapture(event.pointerId) }} onPointerMove={event => { if (drag.current) setOffset({ x: event.clientX - drag.current.x, y: event.clientY - drag.current.y }) }} onPointerUp={() => { drag.current = null }}>
-        <svg viewBox="0 0 720 490" role="img" aria-label={`${nodes.length} entities and ${edges.length} relationships`}><g transform={`translate(${offset.x} ${offset.y}) scale(${zoom})`}>
-          {edges.map(edge => { const a = positions[edge.source]; const b = positions[edge.target]; if (!a || !b) return null; return <g key={edge.id} className="graph-edge" onClick={() => setSelected(edge)}><line x1={a.x} y1={a.y} x2={b.x} y2={b.y} /><text x={(a.x + b.x) / 2} y={(a.y + b.y) / 2}>{edge.label}</text></g> })}
-          {nodes.map(node => { const point = positions[node.id]; return <g key={node.id} className={`graph-node${selectedNode?.id === node.id ? ' active' : ''}`} transform={`translate(${point.x} ${point.y})`} onClick={() => setSelected(node)}><circle r="18" fill={graphColour(node.entity_type)} /><text y="35">{node.label.length > 20 ? `${node.label.slice(0, 19)}…` : node.label}</text></g> })}
+      : <>{data?.truncated && <p className="field-note">Showing the first 800 matching entities, prioritising relationship endpoints. Search or filter to narrow the graph.</p>}<div className="graph-legend"><span>{nodes.length} entities ? {edges.length} relationships</span>{types.map(value => <span key={value}><i style={{ background: graphColour(value) }} />{value.toLowerCase()}</span>)}<span>Select an entity to highlight its connections. Drag to pan; scroll to explore.</span></div><div className="graph-layout"><div className="graph-canvas" onPointerDown={event => { if ((event.target as Element).closest('.graph-node, .graph-edge')) return; drag.current = { x: event.clientX - offset.x, y: event.clientY - offset.y }; event.currentTarget.setPointerCapture(event.pointerId) }} onPointerMove={event => { if (drag.current) setOffset({ x: event.clientX - drag.current.x, y: event.clientY - drag.current.y }) }} onPointerUp={() => { drag.current = null }} onPointerCancel={() => { drag.current = null }}>
+        <svg style={{ width: layout.width * zoom, height: layout.height * zoom }} viewBox={`0 0 ${layout.width} ${layout.height}`} role="group" aria-label={`${nodes.length} entities and ${edges.length} relationships`}><g transform={`translate(${offset.x / zoom} ${offset.y / zoom})`}>
+          {edges.map(edge => { const a = positions[edge.source]; const b = positions[edge.target]; if (!a || !b) return null; return <g key={edge.id} className={`graph-edge${selectedNode && edge.source !== selectedNode.id && edge.target !== selectedNode.id ? ' dimmed' : ''}`} role="button" tabIndex={0} aria-label={`${edge.label}: ${nodes.find(node => node.id === edge.source)?.label} to ${nodes.find(node => node.id === edge.target)?.label}`} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setSelected(edge) } }} onClick={() => setSelected(edge)}><line x1={a.x} y1={a.y} x2={b.x} y2={b.y} />{(selectedEdge?.id === edge.id || selectedNode?.id === edge.source || selectedNode?.id === edge.target) && <text x={(a.x + b.x) / 2} y={(a.y + b.y) / 2 - 8}>{edge.label}</text>}<title>{edge.label}</title></g> })}
+          {nodes.map(node => { const point = positions[node.id]; return <g key={node.id} className={`graph-node${selectedNode?.id === node.id ? ' active' : ''}${selectedNode && !connected.has(node.id) ? ' dimmed' : ''}`} transform={`translate(${point.x} ${point.y})`} role="button" tabIndex={0} aria-label={`${node.label}, ${node.entity_type}`} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setSelected(node) } }} onClick={() => setSelected(node)}><title>{node.label}</title><circle r="18" fill={graphColour(node.entity_type)} /><text y="35">{node.label.length > 20 ? `${node.label.slice(0, 19)}…` : node.label}</text></g> })}
         </g></svg></div>
-        <aside className="graph-details"><h2>{selectedNode ? selectedNode.label : selectedEdge ? selectedEdge.label : 'Select a node or relationship'}</h2>{selectedNode && <><p><b>{selectedNode.entity_type}</b></p><dl><div><dt>Document</dt><dd>{selectedNode.document_id || '—'}</dd></div><div><dt>Chunk</dt><dd>{selectedNode.chunk_id || '—'}</dd></div><div><dt>Source</dt><dd>{String(selectedNode.source.source_path || '—')}</dd></div></dl><a href="#library">Open document library</a></>}{selectedEdge && <><p>{selectedEdge.relationship_type}</p><dl><div><dt>Supporting chunk</dt><dd>{String(selectedEdge.provenance.chunk_id || '—')}</dd></div><div><dt>Location</dt><dd>{String(selectedEdge.provenance.location_type || 'source')} {String(selectedEdge.provenance.location_number || '')}</dd></div><div><dt>Source</dt><dd>{String(selectedEdge.provenance.source_path || '—')}</dd></div></dl></>}</aside>
+        <aside className="graph-details">{selected && <button className="text-button" onClick={() => setSelected(null)}>Clear selection</button>}<h2>{selectedNode ? selectedNode.label : selectedEdge ? selectedEdge.label : 'Select a node or relationship'}</h2>{selectedNode && <><p><b>{selectedNode.entity_type}</b></p><h3>Connected relationships</h3><div className="connection-list">{edges.filter(edge => edge.source === selectedNode.id || edge.target === selectedNode.id).map(edge => <button key={edge.id} className="text-button" onClick={() => setSelected(edge)}>{nodes.find(node => node.id === edge.source)?.label} &rarr; {edge.label} &rarr; {nodes.find(node => node.id === edge.target)?.label}</button>)}</div><dl><div><dt>Document</dt><dd>{selectedNode.document_id || '—'}</dd></div><div><dt>Chunk</dt><dd>{selectedNode.chunk_id || '—'}</dd></div><div><dt>Source</dt><dd>{String(selectedNode.source.source_path || '—')}</dd></div></dl><a href="#library">Open document library</a></>}{selectedEdge && <><p>{selectedEdge.relationship_type}</p><dl><div><dt>Supporting chunk</dt><dd>{String(selectedEdge.provenance.chunk_id || '—')}</dd></div><div><dt>Location</dt><dd>{String(selectedEdge.provenance.location_type || 'source')} {String(selectedEdge.provenance.location_number || '')}</dd></div><div><dt>Source</dt><dd>{String(selectedEdge.provenance.source_path || '—')}</dd></div></dl></>}</aside>
       </div></>}
   </section>
 }
