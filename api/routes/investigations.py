@@ -9,7 +9,7 @@ from api.telemetry import retrieval_telemetry
 from rag.answer_generator import generate_answer
 from rag.context_builder import build_evidence_context, curate_evidence
 from rag.study_assistant import generate_study_answer, retrieval_question
-from rag.ollama_client import OllamaClient, OllamaError, OllamaTimeoutError
+from rag.ollama_client import OllamaClient, OllamaError, OllamaResponseError, OllamaTimeoutError
 
 router = APIRouter(prefix="/investigations", tags=["investigations"])
 
@@ -39,15 +39,25 @@ def study_chat(payload: StudyRequest):
     results, retrieval = search_chunks(retrieval_question(payload.query, history), payload.top_k)
     retrieval["latency_ms"] = round((perf_counter() - started) * 1000, 2)
     evidence = curate_evidence(results)
+    public_evidence = [{key: item.get(key) for key in (
+        "evidence_id", "chunk_id", "document_id", "source_path", "file_type", "text", "location_type", "location_number"
+    )} for item in evidence]
     try:
         answer = generate_study_answer(payload.query, evidence, history, payload.style, payload.allow_general, client)
     except OllamaTimeoutError as error:
         raise HTTPException(504, "The tutor took too long. Try a shorter question or fewer source passages.") from error
+    except OllamaResponseError:
+        # A model that ignores the response schema or invents a source ID must
+        # not make the study page unusable. Return only the retrieved passages
+        # and never present unvalidated text as document-grounded notes.
+        answer = {
+            "document_answer": "",
+            "general_answer": "",
+            "message": "I couldn't safely format a study answer this time. Review the retrieved passages below and try again.",
+            "citation_status": "generation_fallback",
+        }
     except OllamaError as error:
         raise HTTPException(502, str(error)) from error
-    public_evidence = [{key: item.get(key) for key in (
-        "evidence_id", "chunk_id", "document_id", "source_path", "file_type", "text", "location_type", "location_number"
-    )} for item in evidence]
     return {"query": payload.query, "answer": answer, "evidence": public_evidence, "retrieval": retrieval}
 
 @router.post("/query")
