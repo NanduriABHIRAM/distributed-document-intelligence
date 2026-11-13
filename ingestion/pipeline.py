@@ -7,7 +7,7 @@ import os
 from .loaders import discover_documents, load_document
 from .chunking import chunk_section
 
-def run_pipeline(input_dir: Path, output_dir: Path, chunk_size=1200, overlap=150, parquet=False):
+def run_pipeline(input_dir: Path, output_dir: Path, chunk_size=1200, overlap=150, parquet=False, progress=None):
     input_dir, output_dir = Path(input_dir), Path(output_dir)
     if not input_dir.is_dir(): raise FileNotFoundError(f'Input directory does not exist: {input_dir}')
     if chunk_size < 1 or not 0 <= overlap < chunk_size: raise ValueError('Invalid chunk size/overlap')
@@ -15,9 +15,11 @@ def run_pipeline(input_dir: Path, output_dir: Path, chunk_size=1200, overlap=150
     if not paths: raise ValueError('No supported documents found; refusing to publish an empty corpus')
     output_dir.mkdir(parents=True, exist_ok=True)
     temporary = output_dir / 'chunks.jsonl.tmp'
-    failures=[]; successes=0; count=0; started=time.perf_counter()
+    failures=[]; warnings=[]; successes=0; count=0; started=time.perf_counter()
     with temporary.open('w',encoding='utf-8') as stream:
-        for path in paths:
+        for position, path in enumerate(paths, 1):
+            if progress: progress(f'[{position}/{len(paths)}] Reading {path.name}')
+            checkpoint = stream.tell()
             # Document loading fails before any chunks are committed.
             try:
                 document=load_document(path)
@@ -25,10 +27,25 @@ def run_pipeline(input_dir: Path, output_dir: Path, chunk_size=1200, overlap=150
                 for section in document.sections:
                     batch=chunk_section(section,document,chunk_size,overlap,index)
                     for chunk in batch: stream.write(json.dumps(asdict(chunk),ensure_ascii=False)+'\n')
-                    index+=len(batch); count+=len(batch)
+                    index+=len(batch)
+                if not index:
+                    raise ValueError('No readable text was extracted. The document may be empty or contain only images.')
+                count+=index
                 successes+=1
+                if document.metadata.get('extraction_warnings'):
+                    warnings.append({'source_path': str(path), 'pages': document.metadata['extraction_warnings']})
+                    if progress: progress(f"  WARNING: {len(document.metadata['extraction_warnings'])} pages skipped; see warnings.json")
+                if progress: progress(f'  OK: {index} passages')
             except Exception as error:
+                stream.seek(checkpoint)
+                stream.truncate()
                 failures.append({'source_path':str(path),'error':f'{type(error).__name__}: {error}'})
+                if progress: progress(f'  FAILED: {error}')
+    (output_dir/'failures.json').write_text(json.dumps(failures,indent=2),encoding='utf-8')
+    (output_dir/'warnings.json').write_text(json.dumps(warnings,indent=2),encoding='utf-8')
+    if count == 0:
+        temporary.unlink(missing_ok=True)
+        raise ValueError(f'No readable passages extracted; existing corpus was preserved. See {output_dir / "failures.json"}')
     os.replace(temporary,output_dir/'chunks.jsonl')
     if parquet:
         import pyarrow as pa
@@ -58,6 +75,7 @@ def run_pipeline(input_dir: Path, output_dir: Path, chunk_size=1200, overlap=150
         if writer: os.replace(output_dir/'chunks.parquet.tmp',output_dir/'chunks.parquet')
     elapsed=time.perf_counter()-started
     summary={'discovered':len(paths),'succeeded':successes,'failed':len(failures),'chunks':count,
+             'documents_with_warnings':len(warnings),
              'elapsed_seconds':elapsed,'documents_per_second':successes/elapsed,'chunks_per_second':count/elapsed,
              'schema_version':2,'chunk_size':chunk_size,'overlap':overlap,'parquet':parquet,
              'offset_basis':'cleaned_section','document_id_scheme':'absolute_path_and_content_sha256'}

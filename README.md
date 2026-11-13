@@ -62,6 +62,13 @@ python -m evidence.processor --chunks data/processed/chunks.jsonl --output data/
 uvicorn api.main:app --reload
 ```
 
+To check file discovery without processing, run
+`python -m ingestion.cli --input data/raw --scan-only`. Ingestion prints progress
+for every file and saves `summary.json`, `failures.json`, and `warnings.json` in
+the output folder. Mixed PDFs retain readable pages when OCR is unavailable;
+skipped pages are reported in `warnings.json`. Entirely unreadable documents are
+reported as failures, and a run with no usable passages preserves the old corpus.
+
 In a second terminal, start the React/Vite/Tailwind evidence workspace:
 
 ```bash

@@ -6,6 +6,7 @@ import type { Panel } from './ui'
 import type { Dashboard, DocumentRecord, Evidence, InvestigationResult, GraphData, GraphEdge, GraphNode } from './types'
 import { OcrWorkspace } from './OcrWorkspace'
 import { layoutGraph } from './graphLayout'
+import { StudyChat } from './StudyChat'
 
 const examples = ['What are the main findings?', 'Which statements disagree?', 'What changed over time?']
 
@@ -55,7 +56,6 @@ export default function App() {
   const [panel, setPanel] = useState<Panel>(() => panelFromHash(window.location.hash))
   const [theme, setTheme] = useState<'light' | 'dark'>(() => document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light')
   const [query, setQuery] = useState('')
-  const [topK, setTopK] = useState(6)
   const [submittedQuery, setSubmittedQuery] = useState('')
   const [result, setResult] = useState<InvestigationResult | null>(null)
   const [loading, setLoading] = useState(false)
@@ -117,12 +117,12 @@ export default function App() {
     setSubmittedQuery(question)
     setResult(null)
     setActiveEvidence(null)
-    if (panel !== 'rag') navigate('ask')
+    navigate('ask')
     try {
       const value = await request<InvestigationResult>('/investigations/query', {
         method: 'POST', signal: controller.signal,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: question, top_k: topK }),
+        body: JSON.stringify({ query: question, top_k: 6 }),
       }, 150_000)
       if (activeRequest.current === controller && !controller.signal.aborted) {
         setResult({ ...value, query: value.query || question })
@@ -176,17 +176,9 @@ export default function App() {
     <main id="main-content" ref={mainRef} tabIndex={-1}>
       {panel === 'overview' && <Overview workspace={workspace} onAsk={() => navigate('ask')} />}
       {panel === 'ocr' && <OcrWorkspace />}
-      {(panel === 'ask' || panel === 'rag') && <section className="page ask-page">
-        <PageHeading eyebrow={panel === 'rag' ? 'RAG workspace' : 'Ask documents'} title={panel === 'rag' ? 'From retrieval to grounded answers.' : 'Evidence before answers.'}>Ask a question in plain language. TraceRAG retrieves original passages before it responds.</PageHeading>
-        {panel === 'rag' && <>
-          <div className="pipeline-grid">
-            <Status label="01 / Corpus" value={stats ? `${stats.chunks.toLocaleString()} indexed passages` : 'Status unavailable'} ok={Boolean(stats?.chunks)} />
-            <Status label="02 / Retrieve" value={stats ? stats.dense_index_ready ? 'Hybrid keyword + semantic' : 'Keyword retrieval' : 'Status unavailable'} ok={Boolean(stats?.chunks)} />
-            <Status label="03 / Generate" value={stats ? stats.generation_model_available ? 'Answer model available' : 'Model offline · source excerpts' : 'Status unavailable'} ok={Boolean(stats?.generation_model_available)} />
-            <Status label="04 / Validate" value="Citations checked against sources" />
-          </div>
-          <div className="rag-settings"><label htmlFor="top-k">Passages to retrieve</label><select id="top-k" value={topK} disabled={loading} onChange={event => setTopK(Number(event.target.value))}>{[3, 6, 10, 20].map(count => <option key={count} value={count}>{count} passages</option>)}</select><span>Inspect the answer, retrieval counts, and source evidence below.</span></div>
-        </>}
+      <div hidden={panel !== 'rag'}><StudyChat /></div>
+      {panel === 'ask' && <section className="page ask-page">
+        <PageHeading eyebrow="Ask documents" title="Evidence before answers.">Ask a question in plain language. TraceRAG retrieves original passages before it responds.</PageHeading>
         <form className="search" onSubmit={(event: FormEvent) => { event.preventDefault(); void investigate() }}>
           <span className="search-symbol" aria-hidden="true" />
           <input aria-label="Investigation query" aria-describedby={hasNoDocuments ? 'no-corpus-note' : undefined} aria-invalid={queryError ? true : undefined} value={query} onChange={event => { setQuery(event.target.value); setQueryError('') }} placeholder="Ask a question about your documents" minLength={2} maxLength={500} required disabled={hasNoDocuments} />

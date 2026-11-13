@@ -1,4 +1,5 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
+from typing import Literal
 from pydantic import BaseModel, Field
 from time import perf_counter
 
@@ -7,12 +8,47 @@ from evidence.catalog import analyze
 from api.telemetry import retrieval_telemetry
 from rag.answer_generator import generate_answer
 from rag.context_builder import build_evidence_context, curate_evidence
+from rag.study_assistant import generate_study_answer, retrieval_question
+from rag.ollama_client import OllamaClient, OllamaError, OllamaTimeoutError
 
 router = APIRouter(prefix="/investigations", tags=["investigations"])
 
 class InvestigationRequest(BaseModel):
     query: str = Field(min_length=2, max_length=500)
     top_k: int = Field(default=6, ge=1, le=20)
+
+
+class ChatMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(min_length=1, max_length=4000)
+
+
+class StudyRequest(InvestigationRequest):
+    history: list[ChatMessage] = Field(default_factory=list, max_length=8)
+    style: Literal["notes", "summary", "explain"] = "notes"
+    allow_general: bool = True
+
+
+@router.post("/chat")
+def study_chat(payload: StudyRequest):
+    client = OllamaClient(timeout=120)
+    if not client.model_available():
+        raise HTTPException(503, f"The study tutor needs Ollama with {client.model}. Run 'ollama pull {client.model}' and 'ollama serve', then retry.")
+    history = [item.model_dump() for item in payload.history]
+    started = perf_counter()
+    results, retrieval = search_chunks(retrieval_question(payload.query, history), payload.top_k)
+    retrieval["latency_ms"] = round((perf_counter() - started) * 1000, 2)
+    evidence = curate_evidence(results)
+    try:
+        answer = generate_study_answer(payload.query, evidence, history, payload.style, payload.allow_general, client)
+    except OllamaTimeoutError as error:
+        raise HTTPException(504, "The tutor took too long. Try a shorter question or fewer source passages.") from error
+    except OllamaError as error:
+        raise HTTPException(502, str(error)) from error
+    public_evidence = [{key: item.get(key) for key in (
+        "evidence_id", "chunk_id", "document_id", "source_path", "file_type", "text", "location_type", "location_number"
+    )} for item in evidence]
+    return {"query": payload.query, "answer": answer, "evidence": public_evidence, "retrieval": retrieval}
 
 @router.post("/query")
 def investigate(payload: InvestigationRequest):
