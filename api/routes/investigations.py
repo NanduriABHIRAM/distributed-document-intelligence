@@ -29,6 +29,21 @@ class StudyRequest(InvestigationRequest):
     allow_general: bool = True
 
 
+def _retrieval_confidences(results: list[dict]) -> list[int]:
+    """Return a relative retrieval-confidence percentage for displayed evidence.
+
+    This is a ranking signal, not a claim-verification probability.  Scaling to
+    the best result makes BM25, vector, and hybrid/RRF scores comparable in a
+    single investigation response.
+    """
+    raw_scores = [float(item.get("rrf_score", item.get("bm25_score", item.get("vector_score", 0.0))))
+                  for item in results]
+    best = max(raw_scores, default=0.0)
+    if best <= 0:
+        return [0] * len(results)
+    return [round(max(0.0, min(1.0, score / best)) * 100) for score in raw_scores]
+
+
 @router.post("/chat")
 def study_chat(payload: StudyRequest):
     client = OllamaClient(timeout=120)
@@ -77,7 +92,7 @@ def investigate(payload: InvestigationRequest):
         item['claims'] = [claim for claim in graph.claims.values() if claim['source']['chunk_id'] == item['chunk_id']][:3]
         item['events'] = [event for event in graph.events.values() if event['source']['chunk_id'] == item['chunk_id']][:3]
     evidence = []
-    for result in curated:
+    for result, confidence_score in zip(curated, _retrieval_confidences(curated)):
         evidence.append({
             "evidence_id": result["evidence_id"], "chunk_id": result["chunk_id"],
             "document_id": result["document_id"], "source_path": result["source_path"],
@@ -86,6 +101,8 @@ def investigate(payload: InvestigationRequest):
             "claims": result.get("claims", []),
             "events": result.get("events", []),
             "score": round(result.get("rrf_score", result.get("bm25_score", result.get("vector_score", 0.0))), 3),
+            "confidence_score": confidence_score,
+            "confidence_label": "relative retrieval confidence",
         })
     analysis = analyze(graph, {item["chunk_id"] for item in curated})
     context = build_evidence_context(curated)

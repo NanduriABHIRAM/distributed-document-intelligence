@@ -8,6 +8,8 @@ export type Evidence = {
   location_type?: string | null
   location_number?: number | null
   score: number
+  confidence_score?: number
+  confidence_label?: string
 }
 
 export type Answer = {

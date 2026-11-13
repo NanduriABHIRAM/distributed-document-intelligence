@@ -151,6 +151,8 @@ input::placeholder { color: var(--muted); opacity: 1; }
 .evidence-card.open { border-color: var(--accent); }
 .evidence-top { display: flex; justify-content: space-between; color: var(--muted); font: 11px ui-monospace,monospace; }
 .citation { color: var(--accent); }
+.evidence-badges { display: inline-flex; align-items: center; gap: 9px; color: var(--muted); font-size: 11px; }
+.confidence { color: #2d6b5c; background: #e3f1eb; border-radius: 999px; padding: 3px 7px; font-variant-numeric: tabular-nums; }
 .evidence-card h3 { font-size: 13px; font-weight: 500; margin: 20px 0 7px; overflow-wrap: anywhere; }
 .source-line { font-size: 11px; color: var(--muted); text-transform: capitalize; }
 .source-text { font-size: 13px; line-height: 1.8; margin: 14px 0; white-space: pre-wrap; overflow-wrap: anywhere; }

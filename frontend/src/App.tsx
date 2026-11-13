@@ -361,12 +361,13 @@ function EvidenceGrid({ items, activeEvidence, setActiveEvidence }: { items: Evi
 
 function EvidenceCard({ item, expanded, onToggle }: { item: Evidence; expanded: boolean; onToggle: () => void }) {
   const id = `source-${item.evidence_id}`
+  const confidence = Number.isFinite(item.confidence_score) ? Math.round(item.confidence_score as number) : null
   return <article className={`evidence-card${expanded ? ' open' : ''}`} id={id} tabIndex={-1} aria-label={`Source ${item.evidence_id}: ${documentName(item.source_path, item.document_id)}`}>
-    <div className="evidence-top"><span className="citation">[{item.evidence_id}]</span><span>{item.file_type.toUpperCase()}</span></div>
+    <div className="evidence-top"><span className="citation">[{item.evidence_id}]</span><div className="evidence-badges">{confidence !== null && <span className="confidence" title="Relative to the highest-ranked passage for this query; this is not factual verification.">{confidence}% match</span>}<span>{item.file_type.toUpperCase()}</span></div></div>
     <h3>{documentName(item.source_path, item.document_id)}</h3>
     <div className="source-line">{locationLabel(item)}</div>
     <p className={`source-text${expanded ? '' : ' clamp'}`}>{item.text}</p>
-    <div id={`${id}-details`} hidden={!expanded} className="source-details"><dl><div><dt>Source</dt><dd>{item.source_path}</dd></div><div><dt>Chunk</dt><dd>{item.chunk_id}</dd></div>{Number.isFinite(item.score) && <div><dt>Retrieval score</dt><dd>{item.score.toPrecision(4)}</dd></div>}</dl></div>
+    <div id={`${id}-details`} hidden={!expanded} className="source-details"><dl><div><dt>Source</dt><dd>{item.source_path}</dd></div><div><dt>Chunk</dt><dd>{item.chunk_id}</dd></div>{confidence !== null && <div><dt>{item.confidence_label || 'Retrieval confidence'}</dt><dd>{confidence}% · relative to the best retrieved passage</dd></div>}{Number.isFinite(item.score) && <div><dt>Retrieval score</dt><dd>{item.score.toPrecision(4)}</dd></div>}</dl></div>
     <button type="button" className="text-button" aria-expanded={expanded} aria-controls={`${id}-details`} onClick={onToggle}>{expanded ? 'Show less' : 'Read evidence'} <Arrow /></button>
   </article>
 }
